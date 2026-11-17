@@ -139,21 +139,22 @@ fn query_windows_hybrid_cores() -> Option<(usize, usize)> {
         return None;
     }
 
-    let mut buf = vec![0u8; len as usize];
+    let mut buf = vec![0u64; (len as usize).div_ceil(std::mem::size_of::<u64>())];
+    #[allow(clippy::cast_ptr_alignment)]
+    let buf_ptr = buf.as_mut_ptr() as *mut SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX;
     unsafe {
-        GetLogicalProcessorInformationEx(
-            RelationProcessorCore,
-            Some(buf.as_mut_ptr() as *mut SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX),
-            &mut len,
-        )
-        .ok()?;
+        GetLogicalProcessorInformationEx(RelationProcessorCore, Some(buf_ptr), &mut len).ok()?;
     }
 
     let mut efficiency_classes = Vec::new();
     let mut offset = 0usize;
+    let base_bytes = buf.as_ptr() as *const u8;
     while offset + std::mem::size_of::<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>() <= len as usize {
+        #[allow(clippy::cast_ptr_alignment)]
         let info = unsafe {
-            &*(buf.as_ptr().add(offset) as *const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)
+            std::ptr::read_unaligned(
+                base_bytes.add(offset) as *const SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX
+            )
         };
         if info.Size == 0 {
             break;

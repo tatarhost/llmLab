@@ -422,7 +422,7 @@ mod windows_impl {
         }
 
         let mut pid = 0u32;
-        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        let _ = GetWindowThreadProcessId(hwnd, Some(&mut pid as *mut u32));
         if pid == 0 {
             return TRUE;
         }
@@ -571,7 +571,7 @@ mod windows_impl {
             for &raw in hwnds {
                 let hwnd = HWND(raw as *mut c_void);
                 unsafe {
-                    let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                    let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
                 }
             }
             return;
