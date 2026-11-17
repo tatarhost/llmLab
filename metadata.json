@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "llmLab",
+  "description": "Ultra-lightweight Windows TUI runtime for local AI models with Focus Mode, Auto-Tuner, and 300+ tok/s Cloud Boost.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
