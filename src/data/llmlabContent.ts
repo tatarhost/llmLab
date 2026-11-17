@@ -1,5 +1,5 @@
 export type Locale = 'ru' | 'en';
-export type ShellMode = 'powershell' | 'cmd' | 'source';
+export type ShellMode = 'powershell' | 'termux' | 'linux' | 'cmd' | 'source';
 export type EngineId = 'avx2' | 'vulkan' | 'openvino' | 'cloud';
 
 export interface ProcessSample {
@@ -165,10 +165,14 @@ export function getInstallCommand(mode: ShellMode): string {
   switch (mode) {
     case 'powershell':
       return `irm https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.ps1 | iex`;
+    case 'termux':
+      return `curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh | sh`;
+    case 'linux':
+      return `curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh | sh`;
     case 'cmd':
       return `powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.ps1 | iex"`;
     case 'source':
-      return `git clone ${GITHUB_URL}.git && cd llmLab && python scripts/make_icon.py && cargo build --release --target x86_64-pc-windows-msvc`;
+      return `git clone ${GITHUB_URL}.git && cd llmLab && cargo build --release`;
   }
 }
 
@@ -261,23 +265,29 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       cta: 'Команда',
     },
     hero: {
-      meta: 'Windows 10 / 11 x64 · Rust TUI Агент · Hugging Face Hub',
-      title: 'Локальный ИИ-агент и Hugging Face в лёгкой консоли Windows',
+      meta: 'Windows PC · Linux · Android Termux · Rust AI Agent',
+      title: 'Локальный ИИ-агент и Hugging Face для ПК, Linux и Termux',
       subtitle:
-        'Прямой поиск и автоподбор GGUF-моделей с Hugging Face под ваш ПК, автономный агент со скиллами (поиск в интернете, сборка приложений в workspace), очистка RAM и навигация стрелками.',
+        'Единый лёгкий Rust TUI для Windows, Linux (x86_64/ARM64) и Android Termux: прямой поиск GGUF с Hugging Face, автоподбор под железо, веб-поиск, агент-сборщик в workspace и очистка RAM.',
       copyBtn: 'Копировать',
       copiedBtn: 'Скопировано',
       releaseBtn: 'Релизы GitHub',
       shellLabels: {
-        powershell: 'PowerShell',
-        cmd: 'CMD / Win+R',
-        source: 'Из исходников',
+        powershell: 'Windows (PS)',
+        termux: 'Termux',
+        linux: 'Linux',
+        cmd: 'CMD',
+        source: 'Исходники',
       },
       commandHint: {
         powershell:
-          'Удаляет старую версию llmLab.exe, скачивает свежий релиз, проверяет SHA256, настраивает PATH и запускает.',
-        cmd: 'Установка или обновление из обычной командной строки или диалога Win + R.',
-        source: 'Сборка из исходников с генерацией иконки icon.ico и вшиванием в .exe.',
+          'Windows 10/11: удаляет старый llmLab.exe, скачивает свежий релиз, настраивает PATH и запускает.',
+        termux:
+          'Android Termux (ARM64): удаляет старый бинарник, скачивает llmLab-termux-arm64 (или собирает через pkg rust) и запускает.',
+        linux:
+          'Linux (x86_64 / ARM64): устанавливает или обновляет ~/.local/bin/llmLab с автоматической заменой старой версии.',
+        cmd: 'Установка или обновление на Windows из cmd.exe или окна Win + R.',
+        source: 'Локальная release-сборка из исходников (cargo build --release) для Windows / Linux / Termux.',
       },
     },
     simulator: {
@@ -358,7 +368,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       ],
     },
     footer: {
-      tagline: 'llmLab — нативный локальный ИИ-агент и TUI для Windows x64',
+      tagline: 'llmLab — нативный локальный ИИ-агент и TUI для Windows, Linux и Termux',
       github: 'GitHub',
       releases: 'Релизы',
     },
@@ -372,23 +382,29 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       cta: 'Get Command',
     },
     hero: {
-      meta: 'Windows 10 / 11 x64 · Rust AI Agent TUI · Hugging Face Hub',
-      title: 'Local AI Agent & Hugging Face Hub inside a fast Windows terminal',
+      meta: 'Windows PC · Linux · Android Termux · Rust AI Agent',
+      title: 'Local AI Agent & Hugging Face Hub for Windows, Linux & Termux',
       subtitle:
-        'Direct Hugging Face GGUF search with hardware-based auto-selection, autonomous Skills & Web Search agents for building PC apps in ./workspace, Focus Mode RAM cleaner, and arrow-key navigation.',
+        'One ultra-light Rust TUI for Windows PC, Linux (x86_64/ARM64), and Android Termux: direct Hugging Face GGUF search, hardware auto-selection, web search, workspace app builder, and RAM Focus Mode.',
       copyBtn: 'Copy',
       copiedBtn: 'Copied',
       releaseBtn: 'GitHub Releases',
       shellLabels: {
-        powershell: 'PowerShell',
-        cmd: 'CMD / Win+R',
-        source: 'From Source',
+        powershell: 'Windows (PS)',
+        termux: 'Termux',
+        linux: 'Linux',
+        cmd: 'CMD',
+        source: 'Source',
       },
       commandHint: {
         powershell:
-          'Removes old llmLab.exe versions, downloads latest release, verifies SHA256, updates PATH, and launches.',
-        cmd: 'Install or upgrade from Command Prompt or Win + R.',
-        source: 'Builds locally with Pillow multi-res icon.ico embedded via winres.',
+          'Windows 10/11: removes old llmLab.exe, downloads latest release, checks SHA256, configures PATH, and runs.',
+        termux:
+          'Android Termux (ARM64): removes old binary, downloads llmLab-termux-arm64 (or builds via pkg rust), and runs.',
+        linux:
+          'Linux (x86_64 / ARM64): installs or cleanly upgrades ~/.local/bin/llmLab with old-version cleanup.',
+        cmd: 'Install or upgrade on Windows from Command Prompt or Win + R.',
+        source: 'Build natively from source (cargo build --release) on Windows, Linux, or Termux.',
       },
     },
     simulator: {
@@ -469,7 +485,7 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       ],
     },
     footer: {
-      tagline: 'llmLab — native local AI agent & TUI runtime for Windows x64',
+      tagline: 'llmLab — native local AI agent & TUI for Windows, Linux & Termux',
       github: 'GitHub',
       releases: 'Releases',
     },

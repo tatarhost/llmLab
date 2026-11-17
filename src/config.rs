@@ -109,13 +109,20 @@ pub struct AppConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
+        let bin = |base: &str| -> String {
+            if cfg!(windows) {
+                format!("{base}.exe")
+            } else {
+                base.to_string()
+            }
+        };
         Self {
             models_dir: "./models".to_string(),
             engine: EngineKind::LlamaCppAvx2,
-            llama_server_path: "llama-server.exe".to_string(),
-            llama_cli_path: "llama-cli.exe".to_string(),
-            openvino_cli_path: "openvino-genai-cli.exe".to_string(),
-            bitnet_cli_path: "bitnet-server.exe".to_string(),
+            llama_server_path: bin("llama-server"),
+            llama_cli_path: bin("llama-cli"),
+            openvino_cli_path: bin("openvino-genai-cli"),
+            bitnet_cli_path: bin("bitnet-server"),
             server_port: 8089,
             context_size: 4096,
             flash_attn: true,
@@ -179,13 +186,101 @@ pub fn session_snapshot_path() -> PathBuf {
     llmlab_data_dir().join("session_snapshot.json")
 }
 
-pub fn config_file_path() -> PathBuf {
-    let local = PathBuf::from("config.toml");
-    if local.exists() {
-        local
+pub fn app_install_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(PathBuf::from))
+}
+
+fn is_protected_system_dir(dir: &Path) -> bool {
+    let low = dir.to_string_lossy().to_ascii_lowercase();
+    if cfg!(windows) {
+        low.ends_with(r"\windows\system32")
+            || low.ends_with(r"\windows\syswow64")
+            || low == r"c:\windows"
     } else {
-        llmlab_data_dir().join("config.toml")
+        matches!(low.as_str(), "/" | "/bin" | "/usr" | "/usr/bin" | "/system" | "/sbin")
     }
+}
+
+fn dir_is_writable(dir: &Path) -> bool {
+    if fs::create_dir_all(dir).is_err() {
+        return false;
+    }
+    let probe = dir.join(format!(".llmlab_write_probe_{}", std::process::id()));
+    match fs::OpenOptions::new().write(true).create_new(true).open(&probe) {
+        Ok(file) => {
+            drop(file);
+            let _ = fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Resolves relative paths like `./models` or `./workspace` to a guaranteed-writable
+/// location: existing local dir (if writable & non-System32), next to `llmLab.exe`,
+/// or `%USERPROFILE%\.llmlab\<subpath>` fallback.
+pub fn resolve_app_subdir(configured: &str) -> PathBuf {
+    let trimmed = configured.trim();
+    if trimmed.is_empty() {
+        return resolve_app_subdir("models");
+    }
+
+    let raw_path = Path::new(trimmed);
+    if raw_path.is_absolute() {
+        return raw_path.to_path_buf();
+    }
+
+    let rel_clean = trimmed
+        .trim_start_matches("./")
+        .trim_start_matches(r".\");
+    let rel = if rel_clean.is_empty() { "models" } else { rel_clean };
+
+    let safe_cwd = std::env::current_dir()
+        .ok()
+        .filter(|d| !is_protected_system_dir(d));
+
+    if let Some(ref cwd) = safe_cwd {
+        let local_candidate = cwd.join(rel);
+        if local_candidate.is_dir() && dir_is_writable(&local_candidate) {
+            return local_candidate;
+        }
+    }
+
+    if let Some(exe_dir) = app_install_dir().filter(|d| !is_protected_system_dir(d)) {
+        let beside_exe = exe_dir.join(rel);
+        if dir_is_writable(&beside_exe) {
+            return beside_exe;
+        }
+    }
+
+    if let Some(cwd) = safe_cwd {
+        let local_candidate = cwd.join(rel);
+        if dir_is_writable(&local_candidate) {
+            return local_candidate;
+        }
+    }
+
+    let fallback = llmlab_data_dir().join(rel);
+    let _ = fs::create_dir_all(&fallback);
+    fallback
+}
+
+pub fn config_file_path() -> PathBuf {
+    let cwd_safe = std::env::current_dir()
+        .ok()
+        .is_some_and(|d| !is_protected_system_dir(&d));
+    let local = PathBuf::from("config.toml");
+    if cwd_safe && local.exists() {
+        return local;
+    }
+    if let Some(exe_cfg) = app_install_dir().map(|d| d.join("config.toml")) {
+        if exe_cfg.exists() {
+            return exe_cfg;
+        }
+    }
+    llmlab_data_dir().join("config.toml")
 }
 
 pub fn load_config(path: Option<&Path>) -> AppConfig {
@@ -264,10 +359,10 @@ pub fn save_session_snapshot(snapshot: &SessionSnapshot, path: Option<&Path>) ->
     Ok(())
 }
 
-/// Scans `models_dir` for local `.gguf` files sorted by filename.
+/// Scans resolved `models_dir` for local `.gguf` files sorted by filename.
 pub fn discover_gguf_models(models_dir: &str) -> Vec<PathBuf> {
-    let dir = Path::new(models_dir);
-    let Ok(entries) = fs::read_dir(dir) else {
+    let dir = resolve_app_subdir(models_dir);
+    let Ok(entries) = fs::read_dir(&dir) else {
         return Vec::new();
     };
     let mut models: Vec<PathBuf> = entries
@@ -344,5 +439,13 @@ mod tests {
 
         let _ = fs::remove_file(keep_path);
         let _ = fs::remove_file(snap_path);
+    }
+
+    #[test]
+    fn resolves_relative_models_dir_cleanly() {
+        let resolved = resolve_app_subdir("./models");
+        assert!(resolved.ends_with("models"));
+        let abs = std::env::temp_dir().join("llmlab_abs_models");
+        assert_eq!(resolve_app_subdir(&abs.to_string_lossy()), abs);
     }
 }

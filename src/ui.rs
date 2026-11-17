@@ -118,14 +118,27 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
 
     render_top_bar(frame, chunks[0], app);
 
+    let narrow = frame.area().width < 88;
     let body = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .direction(if narrow {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        })
+        .constraints(if narrow {
+            [Constraint::Length(10), Constraint::Min(10)]
+        } else {
+            [Constraint::Percentage(45), Constraint::Percentage(55)]
+        })
         .split(chunks[1]);
 
     let left_rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(10), Constraint::Length(9)])
+        .constraints(if narrow {
+            [Constraint::Length(0), Constraint::Min(8)]
+        } else {
+            [Constraint::Min(10), Constraint::Length(9)]
+        })
         .split(body[0]);
 
     let logo = if app.use_utf8 { &LOGO_UNICODE } else { &LOGO_ASCII };
@@ -230,7 +243,7 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
     let model_items: Vec<ListItem<'_>> = if app.models.is_empty() {
         vec![ListItem::new(format!(
             "Нет .gguf в '{}' -> нажмите [→] чтобы скачать с Hugging Face",
-            app.cfg.models_dir
+            app.models_dir_resolved.display()
         ))]
     } else {
         app.models
@@ -302,10 +315,19 @@ fn render_models_hub(frame: &mut Frame<'_>, app: &App) {
     );
     frame.render_widget(search_box, chunks[1]);
 
-    // Split: left = Hugging Face Hub / files, right = Local models
+    let narrow = frame.area().width < 88;
+    // Split: Hugging Face Hub / files + Local models (stacked on narrow Termux mobile screens)
     let body = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(68), Constraint::Percentage(32)])
+        .direction(if narrow {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        })
+        .constraints(if narrow {
+            [Constraint::Percentage(65), Constraint::Percentage(35)]
+        } else {
+            [Constraint::Percentage(68), Constraint::Percentage(32)]
+        })
         .split(chunks[2]);
 
     if app.hf_in_file_picker {
@@ -492,10 +514,19 @@ fn render_chat(frame: &mut Frame<'_>, app: &App) {
     );
     frame.render_widget(hud, chunks[1]);
 
-    // Main conversation + right Agent & Web Search log pane
+    let narrow = frame.area().width < 88;
+    // Main conversation + Agent & Web Search log pane (stacked cleanly on mobile Termux)
     let chat_split = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(68), Constraint::Percentage(32)])
+        .direction(if narrow {
+            Direction::Vertical
+        } else {
+            Direction::Horizontal
+        })
+        .constraints(if narrow {
+            [Constraint::Percentage(70), Constraint::Percentage(30)]
+        } else {
+            [Constraint::Percentage(68), Constraint::Percentage(32)]
+        })
         .split(chunks[2]);
 
     let mut chat_lines = Vec::new();

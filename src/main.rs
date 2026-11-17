@@ -90,7 +90,13 @@ fn run_self_update_cli() -> Result<()> {
     }
     #[cfg(not(windows))]
     {
-        println!("Самообновление через PowerShell доступно на Windows.");
+        println!("Запуск обновления llmLab для Linux/Termux (удаление старой версии)...");
+        let _ = std::process::Command::new("sh")
+            .args([
+                "-c",
+                "curl -fsSL https://raw.githubusercontent.com/tatarhost/llmLab/main/install.sh | sh",
+            ])
+            .spawn();
     }
     Ok(())
 }

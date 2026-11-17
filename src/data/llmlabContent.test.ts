@@ -11,16 +11,22 @@ import {
   SITE_COPY,
 } from './llmlabContent';
 
-test('install commands target tatarhost/llmLab repository', () => {
+test('install commands target tatarhost/llmLab repository across Windows, Linux, and Termux', () => {
   const ps = getInstallCommand('powershell');
   assert.ok(ps.includes('https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1'));
+
+  const termux = getInstallCommand('termux');
+  assert.ok(termux.includes('https://raw.githubusercontent.com/tatarhost/llmLab/main/install.sh'));
+
+  const linux = getInstallCommand('linux');
+  assert.ok(linux.includes('install.sh'));
 
   const cmd = getInstallCommand('cmd');
   assert.ok(cmd.startsWith('powershell -NoProfile -ExecutionPolicy Bypass'));
   assert.ok(cmd.includes('tatarhost/llmLab'));
 
   const src = getInstallCommand('source');
-  assert.ok(src.includes('cargo build --release --target x86_64-pc-windows-msvc'));
+  assert.ok(src.includes('cargo build --release'));
 });
 
 test('calculateFreedRamMb sums only non-kept processes', () => {

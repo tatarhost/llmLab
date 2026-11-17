@@ -211,12 +211,28 @@ fn detect_gpu() -> GpuInfo {
 
     #[cfg(not(windows))]
     {
+        let is_termux = std::env::var_os("TERMUX_VERSION").is_some()
+            || std::env::var_os("PREFIX")
+                .is_some_and(|p| p.to_string_lossy().contains("com.termux"));
+        let vulkan_available = [
+            "/system/lib64/libvulkan.so",
+            "/usr/lib/x86_64-linux-gnu/libvulkan.so.1",
+            "/usr/lib/aarch64-linux-gnu/libvulkan.so.1",
+            "/usr/lib/libvulkan.so.1",
+        ]
+        .iter()
+        .any(|p| std::path::Path::new(p).exists());
+
         GpuInfo {
-            name: "Host Graphics Adapter".to_string(),
-            vendor: "Generic",
+            name: if is_termux {
+                "Android SoC / Mobile GPU".to_string()
+            } else {
+                "Linux Host Graphics".to_string()
+            },
+            vendor: if is_termux { "Termux" } else { "Linux" },
             vram_mb: 0,
             shared_mb: 0,
-            vulkan_available: std::path::Path::new("/usr/lib/libvulkan.so.1").exists(),
+            vulkan_available,
             openvino_available: false,
         }
     }

@@ -1,6 +1,8 @@
 use crate::agent::{AgentRole, SkillFlags};
 use crate::chat::{spawn_chat_stream, ChatMessage, SpeedHud, StreamEvent};
-use crate::config::{discover_gguf_models, load_config, save_config, AppConfig, EngineKind};
+use crate::config::{
+    discover_gguf_models, load_config, resolve_app_subdir, save_config, AppConfig, EngineKind,
+};
 use crate::focus_mode::FocusModeState;
 use crate::hardware::HardwareProfile;
 use crate::hf::{
@@ -132,6 +134,7 @@ pub struct App {
     pub skills: SkillFlags,
     pub skill_cursor: usize,
     pub agent_logs: Vec<String>,
+    pub models_dir_resolved: PathBuf,
     pub workspace_dir: PathBuf,
 }
 
@@ -164,6 +167,9 @@ impl App {
         };
 
         let hf_candidates = auto_pick_curated_models(&hw);
+
+        let models_dir_resolved = resolve_app_subdir(&cfg.models_dir);
+        let workspace_dir = resolve_app_subdir("./workspace");
 
         Self {
             screen: initial_screen,
@@ -199,8 +205,12 @@ impl App {
             agent_role: AgentRole::AppBuilder,
             skills: SkillFlags::default(),
             skill_cursor: 0,
-            agent_logs: vec!["Агент готов: веб-поиск и песочница ./workspace активны.".to_string()],
-            workspace_dir: PathBuf::from("./workspace"),
+            agent_logs: vec![format!(
+                "Агент готов: веб-поиск и песочница {} активны.",
+                workspace_dir.display()
+            )],
+            models_dir_resolved,
+            workspace_dir,
         }
     }
 
@@ -405,7 +415,7 @@ impl App {
         let Some(model_path) = self.selected_model().cloned() else {
             self.status_banner = format!(
                 "В '{}' нет .gguf. Скачайте модель во вкладке [Модели HF] (→) или выберите CloudApi.",
-                self.cfg.models_dir
+                self.models_dir_resolved.display()
             );
             return;
         };

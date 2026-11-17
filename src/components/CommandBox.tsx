@@ -13,7 +13,7 @@ interface CommandBoxProps {
   locale: Locale;
 }
 
-const SHELL_MODES: ShellMode[] = ['powershell', 'cmd', 'source'];
+const SHELL_MODES: ShellMode[] = ['powershell', 'termux', 'linux', 'cmd', 'source'];
 
 export function CommandBox({ locale }: CommandBoxProps) {
   const [shellMode, setShellMode] = useState<ShellMode>('powershell');

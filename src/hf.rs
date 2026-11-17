@@ -359,8 +359,9 @@ async fn download_gguf_async(
     models_dir: &str,
     tx: &mpsc::UnboundedSender<HfEvent>,
 ) -> Result<()> {
-    let dir = Path::new(models_dir);
-    fs::create_dir_all(dir).context("Не удалось создать папку models/")?;
+    let dir = crate::config::resolve_app_subdir(models_dir);
+    fs::create_dir_all(&dir)
+        .with_context(|| format!("Не удалось создать папку {} (нет прав на запись)", dir.display()))?;
 
     let clean_name = Path::new(file_path)
         .file_name()

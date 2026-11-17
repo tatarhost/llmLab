@@ -325,8 +325,7 @@ fn enumerate_focus_targets(keep_set: &HashSet<String>) -> Vec<FocusTarget> {
 
     #[cfg(not(windows))]
     {
-        let _ = keep_set;
-        Vec::new()
+        unix_impl::enumerate_targets(keep_set)
     }
 }
 
@@ -337,7 +336,8 @@ fn send_graceful_close(pid: u32, hwnds: &[usize]) {
     }
     #[cfg(not(windows))]
     {
-        let _ = (pid, hwnds);
+        let _ = hwnds;
+        unix_impl::send_sigterm(pid);
     }
 }
 
@@ -348,8 +348,7 @@ fn is_pid_alive(pid: u32) -> bool {
     }
     #[cfg(not(windows))]
     {
-        let _ = pid;
-        false
+        unix_impl::check_pid_alive(pid)
     }
 }
 
@@ -360,8 +359,140 @@ fn force_terminate_pid(pid: u32) -> bool {
     }
     #[cfg(not(windows))]
     {
-        let _ = pid;
-        false
+        unix_impl::force_sigkill(pid)
+    }
+}
+
+#[cfg(not(windows))]
+mod unix_impl {
+    use super::*;
+    use sysinfo::System;
+
+    const UNIX_PROTECTED: &[&str] = &[
+        "systemd",
+        "init",
+        "kthreadd",
+        "dbus-daemon",
+        "dbus-broker",
+        "pipewire",
+        "wireplumber",
+        "pulseaudio",
+        "sshd",
+        "networkmanager",
+        "wpa_supplicant",
+        "surfaceflinger",
+        "zygote",
+        "zygote64",
+        "adbd",
+        "bash",
+        "zsh",
+        "sh",
+        "dash",
+        "fish",
+        "tmux",
+        "screen",
+        "proot",
+        "com.termux",
+        "llmlab",
+        "xorg",
+        "xwayland",
+        "gnome-shell",
+        "kwin_wayland",
+        "sway",
+    ];
+
+    fn is_unix_protected(name_lower: &str, pid_u32: u32, protected_pids: &HashSet<u32>) -> bool {
+        if pid_u32 <= 2 || protected_pids.contains(&pid_u32) {
+            return true;
+        }
+        UNIX_PROTECTED
+            .iter()
+            .any(|&p| name_lower == p || name_lower.starts_with("systemd-"))
+    }
+
+    pub fn enumerate_targets(keep_set: &HashSet<String>) -> Vec<FocusTarget> {
+        let sys = System::new_all();
+
+        let mut parent_map = HashMap::new();
+        for (pid, proc_info) in sys.processes() {
+            if let Some(ppid) = proc_info.parent() {
+                parent_map.insert(pid.as_u32(), ppid.as_u32());
+            }
+        }
+
+        let mut protected_pids = HashSet::new();
+        let mut cur = std::process::id();
+        for _ in 0..16 {
+            if cur == 0 || !protected_pids.insert(cur) {
+                break;
+            }
+            cur = *parent_map.get(&cur).unwrap_or(&0);
+        }
+
+        let min_ram_mb = if std::env::var_os("TERMUX_VERSION").is_some() {
+            32
+        } else {
+            BACKGROUND_RAM_THRESHOLD_MB
+        };
+
+        let mut targets = Vec::new();
+        for (pid, proc_info) in sys.processes() {
+            let pid_u32 = pid.as_u32();
+            let raw_name = proc_info.name().to_string_lossy().to_string();
+            let lower = raw_name.trim().to_ascii_lowercase();
+            if lower.is_empty() || is_unix_protected(&lower, pid_u32, &protected_pids) {
+                continue;
+            }
+
+            let ram_mb = proc_info.memory() / (1024 * 1024);
+            if ram_mb < min_ram_mb {
+                continue;
+            }
+
+            let exe_path = proc_info
+                .exe()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let keep = keep_set.contains(&lower);
+            let status = if keep {
+                ProcessRowStatus::Kept
+            } else {
+                ProcessRowStatus::Ready
+            };
+
+            targets.push(FocusTarget {
+                pid: pid_u32,
+                process_name: raw_name.clone(),
+                window_title: format!("[Unix] {raw_name}"),
+                exe_path,
+                ram_mb,
+                hwnds: Vec::new(),
+                keep,
+                status,
+            });
+        }
+
+        targets
+    }
+
+    pub fn send_sigterm(pid: u32) {
+        let _ = Command::new("kill")
+            .args(["-TERM", &pid.to_string()])
+            .status();
+    }
+
+    pub fn check_pid_alive(pid: u32) -> bool {
+        Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
+    pub fn force_sigkill(pid: u32) -> bool {
+        Command::new("kill")
+            .args(["-KILL", &pid.to_string()])
+            .status()
+            .is_ok_and(|s| s.success())
     }
 }
 

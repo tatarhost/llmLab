@@ -30,30 +30,33 @@
 ## English
 
 ### Overview
-**llmLab** is an ultra-lightweight native Windows 10/11 x64 terminal environment (written in Rust, `< 25 MB` RAM footprint) designed to run local LLMs at maximum speed on low-end PCs and laptops—including systems without a discrete GPU (CPU / RAM / iGPU only).
+**llmLab** is an ultra-lightweight native terminal environment written in Rust (`< 25 MB` RAM footprint) designed for **Windows 10/11 PC**, **Linux (`x86_64` / `ARM64`)**, and **Android Termux**—capable of running local GGUF models, searching Hugging Face, and executing autonomous PC/mobile app-builder agent workflows.
 
 ### Key Features
-- **60 FPS Startup Animation:** Double-buffered TrueColor scanline logo (`#00F5D4` → `#3A86FF`) with a white `</>` pulse and live hardware probe (CPU P/E-cores, AVX2/NEON, DXGI GPU, Vulkan/OpenVINO availability, and usable GGUF RAM budget). Skip anytime with `Enter`/`Space` or `--fast`.
-- **Direct Hugging Face Hub & PC Auto-Match:** Searches GGUF models live via `huggingface.co/api`, scores compatibility (`[OK · Fast]` / `[Tight RAM]`) against your PC's RAM/CPU/GPU budget, lists quantizations (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`), and streams downloads directly into `models/`.
+- **Direct Hugging Face Hub & PC Auto-Match:** Searches GGUF models live via `huggingface.co/api`, scores compatibility (`[OK · Fast]` / `[Tight RAM]`) against your RAM/CPU/GPU budget, lists quantizations (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`), and streams downloads directly into `models/`.
 - **AI Agent, Skills & Web Search:** Autonomous ReAct tool loop (`AppBuilder`, `WebResearcher`, `FastAssistant`) with live DuckDuckGo web search, URL doc fetching, sandboxed `./workspace` app creation (`list_files`, `read_file`, `write_file`), and build shell commands.
-- **Arrow-Key TUI & Clean Upgrades:** Navigate tabs effortlessly with `←` / `→` (`Dashboard`, `HF Models`, `Agent / Chat`, `Skills`, `Focus Mode`, `Settings`). Running `install.ps1` or `llmLab --update` automatically stops any running process and removes old `llmLab.exe` binaries before installing the latest release.
-- **AI Focus Mode (RAM & Window Cleaner):** Lists active application windows and background processes (`> 80 MB`) while strictly protecting critical Windows services, audio drivers, VPNs, and your terminal host. Toggle what to keep with `Space`, close apps gracefully via `WM_CLOSE`, track freed RAM live, and restore everything in one click (`Ctrl+R` or on exit).
+- **Cross-Platform Arrow-Key TUI & Clean Upgrades:** Navigate tabs effortlessly with `←` / `→` (`Dashboard`, `HF Models`, `Agent / Chat`, `Skills`, `Focus Mode`, `Settings`), including stacked layout support for narrow Termux mobile screens. Running `install.ps1`, `install.sh`, or `llmLab --update` automatically stops any active instance and replaces the old binary cleanly.
+- **AI Focus Mode (RAM & Window Cleaner):** Reclaims RAM cleanly on Windows (`WM_CLOSE`), Linux, and Termux (`SIGTERM` / `SIGKILL`) while strictly protecting OS services, shells, VPNs, and audio.
 - **Hardware Auto-Tuner & Speed HUD:** Automatically sets `--threads` to fast P-cores, switches Windows power plan to High Performance while active, uses `HIGH_PRIORITY_CLASS`, and streams responses with real-time `tok/s` and `TTFT`.
 
 ---
 
 ### How to Run (Step-by-Step Tutorial)
 
-#### Option 1: One-Command Install & Launch (Recommended)
-Open **PowerShell** on Windows 10/11 and run:
+#### Option 1: One-Command Install & Launch (Windows / Linux / Android Termux)
+**Windows 10/11 (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 ```
-Or from `cmd.exe` / `Win + R`:
+**Linux (`x86_64` / `ARM64`) & Android Termux:**
+```sh
+curl -fsSL https://raw.githubusercontent.com/tatarhost/llmLab/main/install.sh | sh
+```
+Or from Windows `cmd.exe` / `Win + R`:
 ```cmd
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex"
 ```
-This automatically downloads the latest `llmLab-win64.zip` release, verifies `SHA256`, extracts it to `%LOCALAPPDATA%\llmLab`, adds it to your `PATH`, creates a Desktop shortcut, and launches `llmLab`.
+These installers automatically stop any running copy, remove the old version, download the matching release archive (`llmLab-win64.zip`, `llmLab-linux-x86_64.tar.gz`, `llmLab-linux-arm64.tar.gz`, or `llmLab-termux-arm64.tar.gz`), configure `PATH`, and launch `llmLab`.
 
 #### Option 2: Manual Download
 1. Download `llmLab-win64.zip` from the **Releases** page.
@@ -103,30 +106,33 @@ This automatically downloads the latest `llmLab-win64.zip` release, verifies `SH
 ## Русский
 
 ### Описание
-**llmLab** — сверхлёгкая нативная консольная TUI-среда для Windows 10/11 x64 (написана на Rust, потребление ОЗУ `< 25 МБ`), созданная для запуска локальных ИИ-моделей с максимальной скоростью на слабых ПК и ноутбуках — в том числе без дискретной видеокарты (только CPU / RAM / iGPU).
+**llmLab** — сверхлёгкая нативная консольная TUI-среда на Rust (`< 25 МБ` ОЗУ) для **ПК Windows 10/11**, **Linux (`x86_64` / `ARM64`)** и **Android Termux**: прямой поиск моделей на Hugging Face, автоподбор под железо, автономный ИИ-агент со скиллами и очистка ОЗУ.
 
 ### Основные возможности
-- **Анимация запуска 60 FPS:** плавное TrueColor-сканирование логотипа (`#00F5D4` → `#3A86FF`) с белым импульсом центрального выреза `</>` и живой диагностикой железа (P/E-ядра CPU, AVX2/NEON, видеокарта через DXGI, доступность Vulkan/OpenVINO и оценка свободной памяти под GGUF). Пропускается по `Enter`/`Space` или флагом `--fast`.
-- **Прямой Hugging Face Hub и автоподбор под ПК:** ищет GGUF-модели напрямую через `huggingface.co/api`, оценивает совместимость с RAM/CPU/GPU вашего ПК (`[OK · Быстро]` / `[Мало RAM]`), показывает квантования (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`) и скачивает выбранную модель прямо в `models/`.
-- **ИИ-агент со скиллами и поиском в интернете:** ReAct-цикл (`Builder Agent`, `Web Agent`, `Fast Chat`) с веб-поиском (DuckDuckGo), чтением страниц по URL, созданием приложений в песочнице `./workspace` и запуском команд сборки.
-- **Навигация по стрелкам и чистое обновление:** переключайтесь между вкладками клавишами `←` / `→`. При запуске `install.ps1` или `llmLab --update` старый процесс и прежний `llmLab.exe` автоматически удаляются перед установкой новой версии.
-- **Режим «Только ИИ» (Focus Mode):** показывает открытые окна и процессы (`> 80 МБ`), защищает службы Windows/VPN/аудио, освобождает ОЗУ через `WM_CLOSE` и возвращает закрытые программы по `Ctrl+R`.
-- **Auto-Tuner + Speed HUD:** выставляет потоки по быстрым P-ядрам, включает `High Performance` на время работы и отображает `tok/s` и `TTFT`.
+- **Прямой Hugging Face Hub и автоподбор под устройство:** ищет GGUF-модели напрямую через `huggingface.co/api`, оценивает совместимость с RAM/CPU/GPU (`[OK · Быстро]` / `[Мало RAM]`), показывает квантования (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`) и скачивает прямо в `models/`.
+- **ИИ-агент со скиллами и поиском в интернете:** ReAct-цикл (`Builder Agent`, `Web Agent`, `Fast Chat`) с веб-поиском (DuckDuckGo), чтением страниц по URL, созданием проектов в песочнице `./workspace` и запуском команд сборки.
+- **Адаптивный интерфейс на стрелках (включая узкий экран Termux):** переключайтесь между вкладками клавишами `←` / `→`, а на телефоне панели автоматически выстраиваются вертикально. При обновлении (`install.ps1`, `install.sh` или `llmLab --update`) старая версия удаляется автоматически.
+- **Режим «Только ИИ» (Focus Mode):** освобождает ОЗУ на Windows (`WM_CLOSE`), Linux и Termux (`SIGTERM` / `SIGKILL`), защищая системные процессы, оболочку терминала и VPN.
+- **Auto-Tuner + Speed HUD:** выставляет потоки по быстрым ядрам, включает `High Performance` на Windows и отображает `tok/s` и `TTFT`.
 
 ---
 
 ### Туториал: как запустить
 
-#### Способ 1: Запуск по одной команде (рекомендуется)
-Откройте **PowerShell** в Windows 10/11 и выполните:
+#### Способ 1: Установка и обновление в одну команду (Windows / Linux / Termux)
+**Windows 10/11 (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 ```
-Или через `cmd.exe` / окно `Win + R`:
+**Linux (`x86_64` / `ARM64`) и Android Termux:**
+```sh
+curl -fsSL https://raw.githubusercontent.com/tatarhost/llmLab/main/install.sh | sh
+```
+Или через Windows `cmd.exe` / `Win + R`:
 ```cmd
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex"
 ```
-Скрипт автоматически скачает последний релиз `llmLab-win64.zip`, проверит контрольную сумму `SHA256`, распакует файлы в `%LOCALAPPDATA%\llmLab`, пропишет программу в `PATH`, создаст ярлык на Рабочем столе и сразу запустит `llmLab`.
+Скрипт сам остановит запущенную копию, удалит старую версию бинарника, скачает нужный релиз (`llmLab-win64.zip`, `llmLab-linux-x86_64.tar.gz`, `llmLab-linux-arm64.tar.gz` или `llmLab-termux-arm64.tar.gz`), настроит `PATH` и запустит `llmLab`.
 
 #### Способ 2: Ручная установка из Releases
 1. Скачайте архив `llmLab-win64.zip` со страницы **Releases**.

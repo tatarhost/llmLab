@@ -220,8 +220,19 @@ pub fn spawn_tuned_engine(
     #[cfg(not(windows))]
     let _ = high_priority;
 
-    cmd.spawn()
-        .with_context(|| format!("Не удалось запустить движок '{}'. Проверьте путь в config.toml.", spec.binary))
+    cmd.spawn().with_context(|| {
+        if cfg!(windows) {
+            format!(
+                "Не удалось запустить '{}'. Проверьте путь в config.toml или скачайте llama.cpp.",
+                spec.binary
+            )
+        } else {
+            format!(
+                "Не удалось запустить '{}'. На Termux: pkg install llama-cpp; на Linux: установите llama.cpp в PATH.",
+                spec.binary
+            )
+        }
+    })
 }
 
 #[cfg(test)]
