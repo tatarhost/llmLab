@@ -212,11 +212,39 @@ pub fn auto_select_optimal_engine(hw: &crate::hardware::HardwareProfile) -> Engi
     }
 }
 
+pub fn resolve_binary_path(binary: &str) -> String {
+    let path = std::path::Path::new(binary);
+    if path.exists() {
+        return binary.to_string();
+    }
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(parent) = current_exe.parent() {
+            let candidate = parent.join(binary);
+            if candidate.exists() {
+                return candidate.to_string_lossy().to_string();
+            }
+        }
+    }
+    let models_candidate = std::path::Path::new("models").join(binary);
+    if models_candidate.exists() {
+        return models_candidate.to_string_lossy().to_string();
+    }
+    #[cfg(windows)]
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        let app_candidate = std::path::Path::new(&local_app_data).join("llmLab").join(binary);
+        if app_candidate.exists() {
+            return app_candidate.to_string_lossy().to_string();
+        }
+    }
+    binary.to_string()
+}
+
 pub fn spawn_tuned_engine(
     spec: &EngineLaunchSpec,
     high_priority: bool,
 ) -> Result<Child> {
-    let mut cmd = Command::new(&spec.binary);
+    let resolved_binary = resolve_binary_path(&spec.binary);
+    let mut cmd = Command::new(&resolved_binary);
     cmd.args(&spec.args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
