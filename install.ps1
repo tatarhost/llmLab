@@ -137,6 +137,34 @@ try {
     $ModelsDir = Join-Path $InstallDir "models"
     New-Item -ItemType Directory -Force -Path $ModelsDir | Out-Null
 
+    # Automatically download llama-server.exe if not present in InstallDir
+    $LlamaServerPath = Join-Path $InstallDir "llama-server.exe"
+    if (-not (Test-Path $LlamaServerPath)) {
+        Write-Host "    Скачивание движка llama-server.exe с GitHub (ggerganov/llama.cpp)..." -ForegroundColor Cyan
+        try {
+            $LltUrl = "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-bin-win-avx2-x64.zip"
+            $ApiResp = Invoke-RestMethod -Uri "https://api.github.com/repos/ggerganov/llama.cpp/releases/latest" -Headers @{ "User-Agent" = "llmLab-Installer" } -UseBasicParsing -ErrorAction SilentlyContinue
+            if ($ApiResp -and $ApiResp.assets) {
+                $asset = $ApiResp.assets | Where-Object { $_.name -like "*bin-win*avx2*.zip" -or $_.name -like "*bin-win*x64*.zip" } | Select-Object -First 1
+                if ($asset) {
+                    $LltUrl = $asset.browser_download_url
+                }
+            }
+            $LlamaZip = Join-Path $TempDir "llama.zip"
+            Invoke-WebRequest -Uri $LltUrl -OutFile $LlamaZip -UseBasicParsing -ErrorAction SilentlyContinue
+            if (Test-Path $LlamaZip) {
+                Expand-Archive -Path $LlamaZip -DestinationPath (Join-Path $TempDir "llama_extracted") -Force
+                $extractedServer = Get-ChildItem -Path (Join-Path $TempDir "llama_extracted") -Filter "llama-server.exe" -Recurse | Select-Object -First 1
+                if ($extractedServer) {
+                    Copy-Item $extractedServer.FullName $LlamaServerPath -Force
+                    Write-Host "    llama-server.exe успешно установлен!" -ForegroundColor Green
+                }
+            }
+        } catch {
+            Write-Host "    Предупреждение: не удалось автоматически скачать llama-server.exe. Вы можете скачать его с https://github.com/ggerganov/llama.cpp/releases" -ForegroundColor Yellow
+        }
+    }
+
     $ConfigPath = Join-Path $InstallDir "config.toml"
     $ExampleConfigPath = Join-Path $InstallDir "config.example.toml"
     if ((-not (Test-Path $ConfigPath)) -and (Test-Path $ExampleConfigPath)) {
