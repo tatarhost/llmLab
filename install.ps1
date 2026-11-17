@@ -25,25 +25,27 @@ function Resolve-ReleaseAssets {
 
     try {
         $headers = @{ "User-Agent" = "llmLab-Installer" }
-        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$RepoSlug/releases?per_page=5" -Headers $headers -UseBasicParsing
-        foreach ($rel in $releases) {
-            $zipAsset = $rel.assets | Where-Object { $_.name -eq "llmLab-win64.zip" } | Select-Object -First 1
-            if ($zipAsset) {
-                $hashAsset = $rel.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" } | Select-Object -First 1
-                return @{
-                    Zip  = $zipAsset.browser_download_url
-                    Hash = if ($hashAsset) { $hashAsset.browser_download_url } else { $null }
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$RepoSlug/releases?per_page=5" -Headers $headers -UseBasicParsing -ErrorAction SilentlyContinue
+        if ($releases) {
+            foreach ($rel in $releases) {
+                $zipAsset = $rel.assets | Where-Object { $_.name -eq "llmLab-win64.zip" } | Select-Object -First 1
+                if ($zipAsset) {
+                    $hashAsset = $rel.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" } | Select-Object -First 1
+                    return @{
+                        Zip  = $zipAsset.browser_download_url
+                        Hash = if ($hashAsset) { $hashAsset.browser_download_url } else { $null }
+                    }
                 }
             }
         }
     } catch {
-        # Ignore API rate limit / offline errors and fall back to static release URLs
+        # Ignore API errors and fall back
     }
 
     foreach ($c in $candidates) {
         try {
-            $resp = Invoke-WebRequest -Uri $c.Zip -Method Head -UseBasicParsing
-            if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
+            $resp = Invoke-WebRequest -Uri $c.Zip -Method Head -UseBasicParsing -ErrorAction SilentlyContinue
+            if ($resp -and $resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
                 return $c
             }
         } catch {

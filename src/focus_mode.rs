@@ -127,7 +127,6 @@ pub struct FocusModeState {
 }
 
 #[allow(dead_code)]
-#[allow(dead_code)]
 pub fn is_protected_process(process_name: &str, protected_pids: &HashSet<u32>, pid: u32) -> bool {
     if protected_pids.contains(&pid) {
         return true;
