@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Play, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Download, Play, RotateCcw, Search, ShieldCheck, Wrench } from 'lucide-react';
 import {
   calculateFreedRamMb,
   formatRamGb,
+  HF_MODEL_SAMPLES,
   INITIAL_FOCUS_PROCESSES,
   Locale,
   LOGO_LINES,
@@ -11,7 +12,7 @@ import {
   SITE_COPY,
 } from '../data/llmlabContent';
 
-type TuiTab = 'splash' | 'focus' | 'hud';
+type TuiTab = 'splash' | 'hf' | 'agent' | 'focus' | 'hud';
 
 interface TuiSimulatorProps {
   locale: Locale;
@@ -22,15 +23,43 @@ const SAMPLE_RESPONSE: Record<Locale, string> = {
   en: 'Power plan switched to High Performance. Threads pinned to 6 P-cores with q8_0 KV cache. Generation rate: 28.4 tok/s.',
 };
 
+const AGENT_TRACE: Record<Locale, string[]> = {
+  ru: [
+    '[Skill: web_search] "python tray monitor ram psutil" -> 4 результата',
+    '[Skill: write_file] ./workspace/ram_monitor.py (создан, 1.4 КБ)',
+    '[Skill: run_command] python -m py_compile ram_monitor.py -> exit=0',
+  ],
+  en: [
+    '[Skill: web_search] "python tray monitor ram psutil" -> 4 results',
+    '[Skill: write_file] ./workspace/ram_monitor.py (saved, 1.4 KB)',
+    '[Skill: run_command] python -m py_compile ram_monitor.py -> exit=0',
+  ],
+};
+
 export function TuiSimulator({ locale }: TuiSimulatorProps) {
   const [activeTab, setActiveTab] = useState<TuiTab>('splash');
   const [scanRow, setScanRow] = useState<number>(LOGO_LINES.length);
   const [pulseActive, setPulseActive] = useState(false);
 
+  // HF Hub state
+  const [hfFilter, setHfFilter] = useState('');
+  const [selectedHfId, setSelectedHfId] = useState(HF_MODEL_SAMPLES[0].id);
+  const [downloadPct, setDownloadPct] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Agent Skills state
+  const [skillWeb, setSkillWeb] = useState(true);
+  const [skillBuild, setSkillBuild] = useState(true);
+  const [skillShell, setSkillShell] = useState(false);
+  const [agentStep, setAgentStep] = useState(AGENT_TRACE[locale].length);
+  const [isRunningAgent, setIsRunningAgent] = useState(false);
+
+  // Focus Mode state
   const [processes, setProcesses] = useState<ProcessSample[]>(INITIAL_FOCUS_PROCESSES);
   const [cleanedIds, setCleanedIds] = useState<Set<string>>(new Set());
   const [freedTotalMb, setFreedTotalMb] = useState(0);
 
+  // Chat + HUD state
   const [streamChars, setStreamChars] = useState(SAMPLE_RESPONSE[locale].length);
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -53,6 +82,31 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
     }, 34);
     return () => window.clearTimeout(timer);
   }, [activeTab, scanRow]);
+
+  useEffect(() => {
+    if (!isDownloading) return;
+    if (downloadPct >= 100) {
+      setIsDownloading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDownloadPct((prev) => Math.min(100, prev + 14));
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, [isDownloading, downloadPct]);
+
+  useEffect(() => {
+    if (!isRunningAgent) return;
+    const total = AGENT_TRACE[locale].length;
+    if (agentStep >= total) {
+      setIsRunningAgent(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setAgentStep((prev) => prev + 1);
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [isRunningAgent, agentStep, locale]);
 
   useEffect(() => {
     if (!isStreaming) {
@@ -101,12 +155,28 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
     setIsStreaming(true);
   };
 
+  const startDownloadDemo = () => {
+    setDownloadPct(8);
+    setIsDownloading(true);
+  };
+
+  const startAgentDemo = () => {
+    setAgentStep(0);
+    setIsRunningAgent(true);
+  };
+
   const pendingReclaimMb = calculateFreedRamMb(
     processes.filter((p) => !cleanedIds.has(p.id))
   );
 
+  const visibleHfModels = HF_MODEL_SAMPLES.filter((m) =>
+    m.repo.toLowerCase().includes(hfFilter.trim().toLowerCase())
+  );
+
   const tabs: Array<{ id: TuiTab; label: string }> = [
     { id: 'splash', label: copy.tabs.splash },
+    { id: 'hf', label: copy.tabs.hf },
+    { id: 'agent', label: copy.tabs.agent },
     { id: 'focus', label: copy.tabs.focus },
     { id: 'hud', label: copy.tabs.hud },
   ];
@@ -126,7 +196,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
       {/* Window Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 bg-black px-4 py-3">
         <span className="font-mono text-xs font-medium text-neutral-300 whitespace-nowrap shrink-0">
-          llmLab.exe
+          llmLab.exe · ←/→
         </span>
 
         <div
@@ -146,7 +216,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ duration: 0.14 }}
-                className={`relative px-2.5 py-1 text-xs font-medium rounded-sm whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                className={`relative px-2 py-1 text-[11px] font-medium rounded-sm whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                   active ? 'text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
@@ -207,8 +277,8 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                       );
                     })}
                   </pre>
-                  <p className="mt-2.5 font-mono text-[8px] sm:text-[9px] tracking-[0.04em] text-neutral-300 whitespace-nowrap text-center">
-                    l l m L a b · L O C A L A I R U N T I M E
+                  <p className="mt-2.5 font-mono text-[8px] tracking-[0.12em] text-neutral-300 whitespace-nowrap text-center">
+                    llmLab · LOCAL AI RUNTIME
                   </p>
                 </div>
 
@@ -249,10 +319,166 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                   whileHover={{ scale: 1.03, y: -1 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: 'spring', stiffness: 440, damping: 24 }}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white hover:text-black transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white hover:text-black transition-colors whitespace-nowrap shrink-0"
                 >
                   <Play className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{copy.replayBtn}</span>
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'hf' && (
+            <motion.div
+              key="hf"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="flex flex-col gap-3 font-mono text-xs"
+            >
+              <div className="flex items-center gap-2 rounded-md border border-white/15 bg-[#0A0A0A] px-3 py-2">
+                <Search className="h-3.5 w-3.5 text-neutral-400 shrink-0" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={hfFilter}
+                  onChange={(e) => setHfFilter(e.target.value)}
+                  placeholder="qwen coder / llama..."
+                  aria-label="Search Hugging Face models"
+                  className="w-full bg-transparent text-xs text-white placeholder:text-neutral-500 focus:outline-none"
+                />
+                <motion.button
+                  type="button"
+                  onClick={() => setHfFilter('')}
+                  whileTap={{ scale: 0.95 }}
+                  className="rounded border border-white/15 px-2 py-0.5 text-[10px] text-neutral-300 hover:bg-white hover:text-black whitespace-nowrap shrink-0"
+                >
+                  {copy.hfAutoPickBtn}
+                </motion.button>
+              </div>
+
+              <div className="divide-y divide-white/10 rounded-md border border-white/15 bg-[#050505]">
+                {visibleHfModels.map((model) => {
+                  const selected = selectedHfId === model.id;
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedHfId(model.id);
+                        setDownloadPct(0);
+                        setIsDownloading(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-colors ${
+                        selected ? 'bg-white/10' : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="min-w-0 flex items-center gap-2">
+                        <span className={model.fitsPc ? 'text-white' : 'text-neutral-500'}>
+                          {model.fit[locale]}
+                        </span>
+                        <span className="truncate text-neutral-200">{model.repo}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 tabular-nums text-[11px]">
+                        <span className="text-neutral-400">{model.sizeGb.toFixed(1)} GB</span>
+                        <span className="text-neutral-500 hidden sm:inline">{model.speed}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <div className="h-2 w-full rounded-sm bg-neutral-900 border border-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-100"
+                    style={{ width: `${downloadPct}%` }}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-neutral-400 tabular-nums">
+                    {downloadPct === 100
+                      ? 'Saved -> ./models/model-q4_k_m.gguf'
+                      : isDownloading
+                        ? `Downloading... ${downloadPct}% (42.8 MB/s)`
+                        : 'Budget: ~9.3 GB GGUF · HF Hub Direct'}
+                  </span>
+                  <motion.button
+                    type="button"
+                    onClick={startDownloadDemo}
+                    whileHover={{ scale: 1.03, y: -1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 whitespace-nowrap shrink-0"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{copy.hfDownloadBtn}</span>
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'agent' && (
+            <motion.div
+              key="agent"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="flex flex-col gap-3 font-mono text-xs"
+            >
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Web Search', active: skillWeb, toggle: () => setSkillWeb((v) => !v) },
+                  { label: 'App Builder ./workspace', active: skillBuild, toggle: () => setSkillBuild((v) => !v) },
+                  { label: 'Shell Runner', active: skillShell, toggle: () => setSkillShell((v) => !v) },
+                ].map((sk) => (
+                  <motion.button
+                    key={sk.label}
+                    type="button"
+                    onClick={sk.toggle}
+                    whileTap={{ scale: 0.95 }}
+                    className={`rounded border px-2.5 py-1 text-[11px] transition-colors ${
+                      sk.active
+                        ? 'border-white bg-white text-black font-semibold'
+                        : 'border-white/15 bg-black text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {sk.active ? '[x] ' : '[ ] '}
+                    {sk.label}
+                  </motion.button>
+                ))}
+              </div>
+
+              <div className="rounded-md border border-white/15 bg-[#050505] p-3.5 space-y-2 min-h-[170px]">
+                <p className="text-neutral-400">
+                  Builder Agent &gt;{' '}
+                  <span className="text-white">
+                    {locale === 'ru'
+                      ? 'Найди пример и собери утилиту мониторинга RAM в ./workspace'
+                      : 'Search docs and build a RAM monitor script inside ./workspace'}
+                  </span>
+                </p>
+                {AGENT_TRACE[locale].slice(0, agentStep).map((line, idx) => (
+                  <p key={idx} className="text-neutral-300 text-[11px]">
+                    {line}
+                  </p>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-neutral-500">
+                  ReAct Tools · DuckDuckGo + Sandbox FS
+                </span>
+                <motion.button
+                  type="button"
+                  onClick={startAgentDemo}
+                  whileHover={{ scale: 1.03, y: -1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 whitespace-nowrap shrink-0"
+                >
+                  <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{copy.agentRunBtn}</span>
                 </motion.button>
               </div>
             </motion.div>

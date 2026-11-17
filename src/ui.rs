@@ -13,7 +13,7 @@ use ratatui::Frame;
 
 const CYAN: Color = Color::Rgb(0, 245, 212);
 const BLUE: Color = Color::Rgb(58, 134, 255);
-const BORDER_DIM: Color = Color::Rgb(42, 68, 98);
+const BORDER_DIM: Color = Color::Rgb(54, 72, 92);
 
 pub fn render_app(frame: &mut Frame<'_>, app: &App) {
     match app.screen {
@@ -26,8 +26,10 @@ pub fn render_app(frame: &mut Frame<'_>, app: &App) {
             );
         }
         Screen::Dashboard => render_dashboard(frame, app),
-        Screen::FocusMode => render_focus_mode(frame, app),
+        Screen::Models => render_models_hub(frame, app),
         Screen::Chat => render_chat(frame, app),
+        Screen::Skills => render_skills(frame, app),
+        Screen::FocusMode => render_focus_mode(frame, app),
         Screen::Settings => render_settings(frame, app),
     }
 
@@ -36,28 +38,54 @@ pub fn render_app(frame: &mut Frame<'_>, app: &App) {
     }
 }
 
-fn render_top_bar(frame: &mut Frame<'_>, area: Rect, app: &App, active_tab: &str) {
+fn render_top_bar(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let mem_pct = if app.hw.ram_total_bytes > 0 {
         (app.hw.ram_used_bytes as f64 / app.hw.ram_total_bytes as f64) * 100.0
     } else {
         0.0
     };
-    let title_line = Line::from(vec![
-        Span::styled(" llmLab ", Style::default().fg(Color::Black).bg(CYAN).add_modifier(Modifier::BOLD)),
-        Span::styled(format!("  [{active_tab}]  "), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::styled(
-            format!(
-                "RAM: {} / {} ({mem_pct:.0}%)  |  CPU: {:.0}%  |  P-Threads: {}",
-                format_gb(app.hw.ram_used_bytes),
-                format_gb(app.hw.ram_total_bytes),
-                app.hw.cpu_usage_percent,
-                optimal_threads(&app.hw.cpu),
-            ),
-            Style::default().fg(Color::Rgb(170, 210, 245)),
-        ),
-    ]);
 
-    let bar = Paragraph::new(title_line).block(
+    let mut spans = vec![
+        Span::styled(
+            " llmLab ",
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("  "),
+    ];
+
+    for (idx, &tab) in Screen::NAV_TABS.iter().enumerate() {
+        let active = app.screen == tab;
+        let label = format!(" {} ", tab.title());
+        if active {
+            spans.push(Span::styled(
+                label,
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(CYAN)
+                    .add_modifier(Modifier::BOLD),
+            ));
+        } else {
+            spans.push(Span::styled(label, Style::default().fg(Color::Gray)));
+        }
+        if idx + 1 < Screen::NAV_TABS.len() {
+            spans.push(Span::styled("│", Style::default().fg(Color::DarkGray)));
+        }
+    }
+
+    spans.push(Span::styled(
+        format!(
+            "   RAM: {}/{} ({mem_pct:.0}%) | P-Threads: {}",
+            format_gb(app.hw.ram_used_bytes),
+            format_gb(app.hw.ram_total_bytes),
+            optimal_threads(&app.hw.cpu),
+        ),
+        Style::default().fg(Color::Rgb(170, 210, 245)),
+    ));
+
+    let bar = Paragraph::new(Line::from(spans)).block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BORDER_DIM)),
@@ -88,17 +116,16 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
         ])
         .split(frame.area());
 
-    render_top_bar(frame, chunks[0], app, "Главное меню");
+    render_top_bar(frame, chunks[0], app);
 
     let body = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(46), Constraint::Percentage(54)])
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(chunks[1]);
 
-    // Left panel: compact brand + hardware summary + quick navigation
     let left_rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(10), Constraint::Length(8)])
+        .constraints([Constraint::Min(10), Constraint::Length(9)])
         .split(body[0]);
 
     let logo = if app.use_utf8 { &LOGO_UNICODE } else { &LOGO_ASCII };
@@ -126,35 +153,38 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
 
     let actions = vec![
         Line::from(vec![
+            Span::styled("[← / →]     ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+            Span::raw("Переключение вкладок стрелками"),
+        ]),
+        Line::from(vec![
             Span::styled("[1 / Enter] ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
-            Span::raw("Запустить ИИ-чат (Auto-Tune)"),
+            Span::raw("Запустить ИИ-Агента / Чат"),
         ]),
         Line::from(vec![
             Span::styled("[2]         ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
-            Span::raw("Режим «Только ИИ» (очистка RAM + выбор окон)"),
+            Span::raw("Hugging Face: поиск и автоподбор моделей"),
         ]),
         Line::from(vec![
             Span::styled("[3]         ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
-            Span::raw("Профили движка (AVX2 / Vulkan / OpenVINO / Cloud)"),
+            Span::raw("Скиллы (веб-поиск, сборка приложений)"),
         ]),
         Line::from(vec![
-            Span::styled("[Ctrl+R]    ", Style::default().fg(BLUE).add_modifier(Modifier::BOLD)),
-            Span::raw("Восстановить закрытые окна"),
+            Span::styled("[4]         ", Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+            Span::raw("Режим «Только ИИ» (очистка RAM)"),
         ]),
         Line::from(vec![
-            Span::styled("[Q]         ", Style::default().fg(Color::DarkGray)),
-            Span::raw("Выход"),
+            Span::styled("[U / Q]     ", Style::default().fg(BLUE).add_modifier(Modifier::BOLD)),
+            Span::raw("Обновить (с удалением старой) / Выход"),
         ]),
     ];
     let nav_block = Paragraph::new(actions).block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BORDER_DIM))
-            .title(" Действия "),
+            .title(" Навигация "),
     );
     frame.render_widget(nav_block, left_rows[1]);
 
-    // Right panel: hardware profile + local GGUF models
     let right_rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(9), Constraint::Min(6)])
@@ -163,7 +193,7 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
     let hw_lines = vec![
         Line::from(format!("CPU:    {}", app.hw.cpu.brand)),
         Line::from(format!(
-            "Ядра:   {} P / {} E ({} логич.) · AVX2: {}",
+            "Ядра:   {} P / {} E ({} потоков) · AVX2: {}",
             app.hw.cpu.p_cores,
             app.hw.cpu.e_cores,
             app.hw.cpu.logical_threads,
@@ -177,29 +207,29 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
             if app.hw.gpu.openvino_available { "Да" } else { "Нет" }
         )),
         Line::from(format!(
-            "Бюджет: ~{} свободно под GGUF (освобождено: +{:.2} ГБ)",
+            "Бюджет: ~{} под GGUF (свободно после Focus: +{:.2} ГБ)",
             format_gb(app.hw.recommended_model_budget_bytes),
             app.focus.freed_mb_total as f64 / 1024.0
         )),
         Line::from(format!(
-            "Движок: {} | ctx={} | flash={} | kv_q8={}",
-            app.cfg.engine.label(),
-            app.cfg.context_size,
-            app.cfg.flash_attn,
-            app.cfg.kv_cache_q8
+            "Агент:  {} | Web={} | Build={} | Shell={}",
+            app.agent_role.short_label(),
+            app.skills.web_search,
+            app.skills.file_builder,
+            app.skills.shell_exec,
         )),
     ];
     let hw_panel = Paragraph::new(hw_lines).block(
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BORDER_DIM))
-            .title(" Железо и профиль "),
+            .title(" Профиль ПК и Агента "),
     );
     frame.render_widget(hw_panel, right_rows[0]);
 
     let model_items: Vec<ListItem<'_>> = if app.models.is_empty() {
         vec![ListItem::new(format!(
-            "Нет .gguf файлов в '{}' (положите модель или выберите CloudApi в [3])",
+            "Нет .gguf в '{}' -> нажмите [→] чтобы скачать с Hugging Face",
             app.cfg.models_dir
         ))]
     } else {
@@ -226,14 +256,384 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BORDER_DIM))
-            .title(" Локальные GGUF модели (↑/↓ выбор, R обновить) "),
+            .title(" Локальные модели (↑/↓ выбор, Enter запуск, R обновить) "),
     );
     frame.render_widget(models_list, right_rows[1]);
 
     render_footer(
         frame,
         chunks[2],
-        "1/Enter: Чат  |  2: Focus Mode  |  3: Настройки  |  ↑/↓: Выбор модели  |  Ctrl+R: Восстановить окна  |  Q: Выход",
+        "←/→: Вкладки  |  ↑/↓: Выбор  |  Enter: Чат/Агент  |  2: Hugging Face  |  Ctrl+R: Вернуть окна  |  Q: Выход",
+        &app.status_banner,
+    );
+}
+
+fn render_models_hub(frame: &mut Frame<'_>, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(3),
+            Constraint::Length(4),
+        ])
+        .split(frame.area());
+
+    render_top_bar(frame, chunks[0], app);
+
+    // Search bar
+    let search_title = if app.hf_search_focused {
+        " Поиск GGUF на Hugging Face (введите запрос и нажмите Enter, Esc отмена) "
+    } else {
+        " Поиск Hugging Face (/ — ввести запрос, P — автоподбор под этот ПК, F — все файлы) "
+    };
+    let search_border = if app.hf_search_focused { CYAN } else { BORDER_DIM };
+    let search_text = if app.hf_query.is_empty() && !app.hf_search_focused {
+        "Нажмите '/' чтобы искать (например: qwen2.5 coder gguf, llama 3.2)..."
+    } else {
+        app.hf_query.as_str()
+    };
+    let search_box = Paragraph::new(search_text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(search_border))
+            .title(search_title),
+    );
+    frame.render_widget(search_box, chunks[1]);
+
+    // Split: left = Hugging Face Hub / files, right = Local models
+    let body = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(68), Constraint::Percentage(32)])
+        .split(chunks[2]);
+
+    if app.hf_in_file_picker {
+        let rows: Vec<Row<'_>> = app
+            .hf_repo_files
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let marker = if i == app.hf_file_idx { "▶" } else { " " };
+                let gb = f.size_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+                Row::new(vec![
+                    Cell::from(marker),
+                    Cell::from(f.path.clone()),
+                    Cell::from(format!("{gb:.2} ГБ")),
+                ])
+            })
+            .collect();
+        let repo_title = app.hf_active_repo.as_deref().unwrap_or("HF Repo");
+        let table = Table::new(
+            rows,
+            [Constraint::Length(3), Constraint::Min(26), Constraint::Length(12)],
+        )
+        .header(
+            Row::new(vec!["", "GGUF файл", "Размер"])
+                .style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(BORDER_DIM))
+                .title(format!(" Файлы {repo_title} (Enter скачать, Esc назад) ")),
+        )
+        .row_highlight_style(Style::default().bg(Color::Rgb(24, 48, 76)).add_modifier(Modifier::BOLD));
+
+        let mut st = TableState::default();
+        if !app.hf_repo_files.is_empty() {
+            st.select(Some(app.hf_file_idx));
+        }
+        frame.render_stateful_widget(table, body[0], &mut st);
+    } else {
+        let rows: Vec<Row<'_>> = app
+            .hf_candidates
+            .iter()
+            .map(|c| {
+                let fit_color = if c.fits_pc { CYAN } else { Color::Red };
+                Row::new(vec![
+                    Cell::from(c.fit_label).style(Style::default().fg(fit_color)),
+                    Cell::from(c.repo_id.clone()),
+                    Cell::from(format!("~{:.1} ГБ", c.est_size_gb)),
+                    Cell::from(c.est_tok_s),
+                    Cell::from(format!("{}", c.downloads)),
+                ])
+            })
+            .collect();
+
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(14),
+                Constraint::Min(28),
+                Constraint::Length(9),
+                Constraint::Length(12),
+                Constraint::Length(9),
+            ],
+        )
+        .header(
+            Row::new(vec!["ПК-совм.", "Репозиторий Hugging Face", "Вес", "Оценка", "Загр."])
+                .style(Style::default().fg(CYAN).add_modifier(Modifier::BOLD)),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(BORDER_DIM))
+                .title(format!(
+                    " Подбор под {} RAM (~{} под GGUF) ",
+                    format_gb(app.hw.ram_total_bytes),
+                    format_gb(app.hw.recommended_model_budget_bytes),
+                )),
+        )
+        .row_highlight_style(Style::default().bg(Color::Rgb(24, 48, 76)).add_modifier(Modifier::BOLD));
+
+        let mut st = TableState::default();
+        if !app.hf_candidates.is_empty() {
+            st.select(Some(app.hf_selected_idx));
+        }
+        frame.render_stateful_widget(table, body[0], &mut st);
+    }
+
+    // Right pane: local models in ./models with Delete option
+    let local_items: Vec<ListItem<'_>> = if app.models.is_empty() {
+        vec![ListItem::new("Папка ./models пуста")]
+    } else {
+        app.models
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let marker = if i == app.selected_model_idx { "▶ " } else { "  " };
+                let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("model.gguf");
+                ListItem::new(format!("{marker}{name}"))
+            })
+            .collect()
+    };
+    let local_panel = List::new(local_items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BORDER_DIM))
+            .title(" Скачанные (D — удалить) "),
+    );
+    frame.render_widget(local_panel, body[1]);
+
+    // Download progress gauge
+    let ratio = if app.hf_download.total > 0 {
+        (app.hf_download.downloaded as f64 / app.hf_download.total as f64).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let dl_label = if app.hf_download.active {
+        let dl_mb = app.hf_download.downloaded as f64 / (1024.0 * 1024.0);
+        let tot_mb = app.hf_download.total as f64 / (1024.0 * 1024.0);
+        format!(
+            "Загрузка {}: {:.1} / {:.1} МБ ({:.1} МБ/с)",
+            app.hf_download.file_name, dl_mb, tot_mb, app.hf_download.speed_mb_s
+        )
+    } else {
+        "Выберите модель (↑/↓) и нажмите Enter для прямого скачивания с Hugging Face".to_string()
+    };
+    let gauge = Gauge::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(BORDER_DIM))
+                .title(" Загрузка Hugging Face "),
+        )
+        .gauge_style(Style::default().fg(CYAN).bg(Color::Rgb(20, 30, 44)))
+        .ratio(ratio)
+        .label(dl_label);
+    frame.render_widget(gauge, chunks[3]);
+
+    render_footer(
+        frame,
+        chunks[4],
+        "/: Поиск HF  |  P: Автоподбор под ПК  |  F: Список квантований  |  Enter: Скачать  |  D: Удалить старую  |  ←/→: Вкладки",
+        &app.status_banner,
+    );
+}
+
+fn render_chat(frame: &mut Frame<'_>, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(3),
+            Constraint::Length(3),
+        ])
+        .split(frame.area());
+
+    render_top_bar(frame, chunks[0], app);
+
+    let ttft_str = app
+        .speed_hud
+        .ttft_ms
+        .map(|v| format!("{v} мс"))
+        .unwrap_or_else(|| "—".to_string());
+    let hud_line = Line::from(vec![
+        Span::styled(" HUD ", Style::default().fg(Color::Black).bg(BLUE).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!(
+                "  {:.1} tok/s  |  TTFT: {}  |  Токенов: {}  |  Режим: {}  |  {}",
+                app.speed_hud.tok_per_sec,
+                ttft_str,
+                app.speed_hud.tokens_generated,
+                app.agent_role.short_label(),
+                app.speed_hud.backend_label,
+            ),
+            Style::default().fg(CYAN),
+        ),
+    ]);
+    let hud = Paragraph::new(hud_line).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BORDER_DIM)),
+    );
+    frame.render_widget(hud, chunks[1]);
+
+    // Main conversation + right Agent & Web Search log pane
+    let chat_split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(68), Constraint::Percentage(32)])
+        .split(chunks[2]);
+
+    let mut chat_lines = Vec::new();
+    if app.chat_history.is_empty() {
+        chat_lines.push(Line::from(Span::styled(
+            "Задайте задачу агенту (например: 'Найди документацию и создай Python-приложение в workspace').",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else {
+        for msg in &app.chat_history {
+            let (prefix, color) = if msg.role == "user" {
+                ("Вы > ", BLUE)
+            } else {
+                ("Агент > ", CYAN)
+            };
+            chat_lines.push(Line::from(vec![
+                Span::styled(prefix, Style::default().fg(color).add_modifier(Modifier::BOLD)),
+                Span::raw(&msg.content),
+            ]));
+            chat_lines.push(Line::from(""));
+        }
+    }
+
+    let chat_box = Paragraph::new(chat_lines)
+        .wrap(Wrap { trim: false })
+        .scroll((app.chat_scroll, 0))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(BORDER_DIM))
+                .title(" Диалог с ИИ-агентом "),
+        );
+    frame.render_widget(chat_box, chat_split[0]);
+
+    let log_items: Vec<ListItem<'_>> = app
+        .agent_logs
+        .iter()
+        .rev()
+        .take(12)
+        .map(|s| ListItem::new(s.as_str()))
+        .collect();
+    let logs_box = List::new(log_items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BORDER_DIM))
+            .title(" Инструменты / Поиск "),
+    );
+    frame.render_widget(logs_box, chat_split[1]);
+
+    let prompt_title = if app.speed_hud.is_streaming {
+        " Агент работает... "
+    } else {
+        " Задача / Промпт (Enter — отправить, Tab — сменить вкладку, Esc — назад) "
+    };
+    let input_box = Paragraph::new(app.chat_input.as_str()).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(CYAN))
+            .title(prompt_title),
+    );
+    frame.render_widget(input_box, chunks[3]);
+
+    let footer = Paragraph::new(app.status_banner.as_str())
+        .style(Style::default().fg(Color::DarkGray))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(BORDER_DIM)),
+        );
+    frame.render_widget(footer, chunks[4]);
+}
+
+fn render_skills(frame: &mut Frame<'_>, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(4),
+        ])
+        .split(frame.area());
+
+    render_top_bar(frame, chunks[0], app);
+
+    let rows = [
+        (
+            "Роль агента",
+            app.agent_role.label().to_string(),
+            "Определяет системную специализацию: сборка ПК-приложений или поиск.",
+        ),
+        (
+            if app.skills.web_search { "[x] Поиск в интернете" } else { "[ ] Поиск в интернете" },
+            if app.skills.web_search { "Вкл (DuckDuckGo)" } else { "Выкл" }.to_string(),
+            "Разрешает агенту выходить в сеть и читать страницы документации.",
+        ),
+        (
+            if app.skills.file_builder { "[x] Файлы ./workspace" } else { "[ ] Файлы ./workspace" },
+            if app.skills.file_builder { "Вкл (песочница)" } else { "Выкл" }.to_string(),
+            "Создание и редактирование кода приложений строго внутри ./workspace.",
+        ),
+        (
+            if app.skills.shell_exec { "[x] Запуск команд сборки" } else { "[ ] Запуск команд сборки" },
+            if app.skills.shell_exec { "Вкл (cmd /C)" } else { "Выкл" }.to_string(),
+            "Позволяет агенту запускать Python/Node/Cargo команды для проверки.",
+        ),
+        (
+            if app.skills.auto_approve_tools { "[x] Автоподтверждение записи/shell" } else { "[ ] Автоподтверждение записи/shell" },
+            if app.skills.auto_approve_tools { "Авто-агент" } else { "Безопасный" }.to_string(),
+            "Автоматически разрешает write_file и run_command без запроса.",
+        ),
+    ];
+
+    let items: Vec<ListItem<'_>> = rows
+        .iter()
+        .enumerate()
+        .map(|(i, (title, val, desc))| {
+            let prefix = if i == app.skill_cursor { "▶ " } else { "  " };
+            let style = if i == app.skill_cursor {
+                Style::default().fg(CYAN).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(format!("{prefix}{title:<38} | {val:<18} | {desc}")).style(style)
+        })
+        .collect();
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(BORDER_DIM))
+            .title(" Скиллы и субагенты (↑/↓ выбор, Space/Enter переключить) "),
+    );
+    frame.render_widget(list, chunks[1]);
+
+    render_footer(
+        frame,
+        chunks[2],
+        "←/→: Вкладки  |  ↑/↓: Выбор скилла  |  Space/Enter: Вкл/Выкл или сменить роль  |  Esc: Обзор",
         &app.status_banner,
     );
 }
@@ -249,7 +649,7 @@ fn render_focus_mode(frame: &mut Frame<'_>, app: &App) {
         ])
         .split(frame.area());
 
-    render_top_bar(frame, chunks[0], app, "Режим «Только ИИ» (Focus Mode)");
+    render_top_bar(frame, chunks[0], app);
 
     let total_ratio = if app.hw.ram_total_bytes > 0 {
         (app.hw.ram_used_bytes as f64 / app.hw.ram_total_bytes as f64).clamp(0.0, 1.0)
@@ -338,103 +738,9 @@ fn render_focus_mode(frame: &mut Frame<'_>, app: &App) {
     render_footer(
         frame,
         chunks[3],
-        "Space: [x] Оставить  |  A: Все/Снять  |  Enter: Очистить RAM  |  F: Kill зависших  |  Ctrl+R: Вернуть  |  Esc: Назад",
+        "Space: [x] Оставить  |  A: Все  |  Enter: Очистить RAM  |  Ctrl+R: Вернуть  |  ←/→: Вкладки",
         &app.focus.last_status_msg,
     );
-}
-
-fn render_chat(frame: &mut Frame<'_>, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(10),
-            Constraint::Length(3),
-            Constraint::Length(3),
-        ])
-        .split(frame.area());
-
-    let ttft_str = app
-        .speed_hud
-        .ttft_ms
-        .map(|v| format!("{v} мс"))
-        .unwrap_or_else(|| "—".to_string());
-    let hud_line = Line::from(vec![
-        Span::styled(" HUD ", Style::default().fg(Color::Black).bg(BLUE).add_modifier(Modifier::BOLD)),
-        Span::styled(
-            format!(
-                "  {:.1} tok/s  |  TTFT: {}  |  Токенов: {}  |  RAM: {}/{}  |  CPU: {:.0}%  |  {}",
-                app.speed_hud.tok_per_sec,
-                ttft_str,
-                app.speed_hud.tokens_generated,
-                format_gb(app.hw.ram_used_bytes),
-                format_gb(app.hw.ram_total_bytes),
-                app.hw.cpu_usage_percent,
-                app.speed_hud.backend_label,
-            ),
-            Style::default().fg(CYAN),
-        ),
-    ]);
-    let hud = Paragraph::new(hud_line).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(BORDER_DIM)),
-    );
-    frame.render_widget(hud, chunks[0]);
-
-    let mut chat_lines = Vec::new();
-    if app.chat_history.is_empty() {
-        chat_lines.push(Line::from(Span::styled(
-            "Введите сообщение ниже и нажмите Enter для начала диалога.",
-            Style::default().fg(Color::DarkGray),
-        )));
-    } else {
-        for msg in &app.chat_history {
-            let (prefix, color) = if msg.role == "user" {
-                ("Вы > ", BLUE)
-            } else {
-                ("ИИ > ", CYAN)
-            };
-            chat_lines.push(Line::from(vec![
-                Span::styled(prefix, Style::default().fg(color).add_modifier(Modifier::BOLD)),
-                Span::raw(&msg.content),
-            ]));
-            chat_lines.push(Line::from(""));
-        }
-    }
-
-    let chat_box = Paragraph::new(chat_lines)
-        .wrap(Wrap { trim: false })
-        .scroll((app.chat_scroll, 0))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(BORDER_DIM))
-                .title(" Чат "),
-        );
-    frame.render_widget(chat_box, chunks[1]);
-
-    let prompt_title = if app.speed_hud.is_streaming {
-        " Генерация ответа... "
-    } else {
-        " Запрос (Enter — отправить, Esc — назад) "
-    };
-    let input_box = Paragraph::new(app.chat_input.as_str()).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(CYAN))
-            .title(prompt_title),
-    );
-    frame.render_widget(input_box, chunks[2]);
-
-    let footer = Paragraph::new(app.status_banner.as_str())
-        .style(Style::default().fg(Color::DarkGray))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(BORDER_DIM)),
-        );
-    frame.render_widget(footer, chunks[3]);
 }
 
 fn render_settings(frame: &mut Frame<'_>, app: &App) {
@@ -447,7 +753,7 @@ fn render_settings(frame: &mut Frame<'_>, app: &App) {
         ])
         .split(frame.area());
 
-    render_top_bar(frame, chunks[0], app, "Настройки движка и профили");
+    render_top_bar(frame, chunks[0], app);
 
     let items: Vec<ListItem<'_>> = SettingField::ALL
         .iter()
@@ -500,14 +806,14 @@ fn render_settings(frame: &mut Frame<'_>, app: &App) {
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(BORDER_DIM))
-            .title(" Профиль запуска (Enter / Space — изменить, Esc — в меню) "),
+            .title(" Настройки движка (↑/↓ выбор, Enter/Space изменить) "),
     );
     frame.render_widget(list, chunks[1]);
 
     render_footer(
         frame,
         chunks[2],
-        "↑/↓: Выбор параметра  |  Enter/Space: Переключить  |  Esc: Назад",
+        "←/→: Вкладки  |  ↑/↓: Параметр  |  Enter/Space: Переключить  |  Esc: Обзор",
         &app.status_banner,
     );
 }

@@ -62,12 +62,20 @@ New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 try {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
+    # Stop running llmLab instance & delete old version artifacts before upgrading
+    Get-Process -Name "llmLab" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 250
+    foreach ($oldPattern in @("llmLab.exe", "*.exe.old", "*.exe.bak", "models\*.part")) {
+        $target = Join-Path $InstallDir $oldPattern
+        Remove-Item $target -Force -ErrorAction SilentlyContinue
+    }
+
     $Assets = Resolve-ReleaseAssets -RepoSlug $Repo
     if ($Assets) {
         $ZipPath = Join-Path $TempDir "llmLab-win64.zip"
         $HashPath = Join-Path $TempDir "SHA256SUMS.txt"
 
-        Write-Host "    Скачивание последнего релиза..."
+        Write-Host "    Скачивание последнего релиза (старая версия удалена)..."
         Invoke-WebRequest -Uri $Assets.Zip -OutFile $ZipPath -UseBasicParsing
 
         if ($Assets.Hash) {

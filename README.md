@@ -34,10 +34,11 @@
 
 ### Key Features
 - **60 FPS Startup Animation:** Double-buffered TrueColor scanline logo (`#00F5D4` → `#3A86FF`) with a white `</>` pulse and live hardware probe (CPU P/E-cores, AVX2/NEON, DXGI GPU, Vulkan/OpenVINO availability, and usable GGUF RAM budget). Skip anytime with `Enter`/`Space` or `--fast`.
-- **AI Focus Mode (RAM & Window Cleaner):** Lists active application windows and background processes (`> 80 MB`) while strictly protecting critical Windows services, audio drivers, VPNs, and your terminal host. Toggle what to keep with `Space`, save your whitelist to `%USERPROFILE%\.llmlab\keep_apps.json`, close apps gracefully via `WM_CLOSE`, track freed RAM live, and restore everything in one click (`Ctrl+R` or on exit).
-- **Hardware Auto-Tuner:** Automatically sets `--threads` to fast P-cores on hybrid Intel CPUs, temporarily switches Windows power plan to **High Performance** via `powercfg` (restoring your original plan on exit), and launches inference engines with `HIGH_PRIORITY_CLASS`.
-- **Multi-Engine & Cloud Boost:** Supports `llama.cpp` (AVX2 & Vulkan), `OpenVINO`, `bitnet.cpp`, and OpenAI-compatible Cloud APIs (`Groq`, `Cerebras`, `OpenRouter`) for 300+ tok/s streaming.
-- **Built-in Chat + Speed HUD:** Displays real-time `tok/s`, `TTFT` (Time To First Token), RAM usage, and CPU load while generating responses.
+- **Direct Hugging Face Hub & PC Auto-Match:** Searches GGUF models live via `huggingface.co/api`, scores compatibility (`[OK · Fast]` / `[Tight RAM]`) against your PC's RAM/CPU/GPU budget, lists quantizations (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`), and streams downloads directly into `models/`.
+- **AI Agent, Skills & Web Search:** Autonomous ReAct tool loop (`AppBuilder`, `WebResearcher`, `FastAssistant`) with live DuckDuckGo web search, URL doc fetching, sandboxed `./workspace` app creation (`list_files`, `read_file`, `write_file`), and build shell commands.
+- **Arrow-Key TUI & Clean Upgrades:** Navigate tabs effortlessly with `←` / `→` (`Dashboard`, `HF Models`, `Agent / Chat`, `Skills`, `Focus Mode`, `Settings`). Running `install.ps1` or `llmLab --update` automatically stops any running process and removes old `llmLab.exe` binaries before installing the latest release.
+- **AI Focus Mode (RAM & Window Cleaner):** Lists active application windows and background processes (`> 80 MB`) while strictly protecting critical Windows services, audio drivers, VPNs, and your terminal host. Toggle what to keep with `Space`, close apps gracefully via `WM_CLOSE`, track freed RAM live, and restore everything in one click (`Ctrl+R` or on exit).
+- **Hardware Auto-Tuner & Speed HUD:** Automatically sets `--threads` to fast P-cores, switches Windows power plan to High Performance while active, uses `HIGH_PRIORITY_CLASS`, and streams responses with real-time `tok/s` and `TTFT`.
 
 ---
 
@@ -86,10 +87,14 @@ This automatically downloads the latest `llmLab-win64.zip` release, verifies `SH
 ### CLI Flags & Shortcuts
 - **CLI Flags:**
   - `--fast` — skip the startup animation.
+  - `--models` — launch straight into the Hugging Face Model Hub.
   - `--focus` — launch straight into AI Focus Mode.
+  - `--update` — delete the old binary and install the latest release.
   - `--ascii` — force ASCII logo fallback for legacy `cmd.exe` without UTF-8.
 - **Hotkeys:**
-  - `1` / `Enter` — launch model & open Chat | `2` — Focus Mode | `3` — Settings | `Q` — Quit
+  - `←` / `→` / `Tab` — switch between tabs (`Dashboard`, `HF Models`, `Agent / Chat`, `Skills`, `Focus Mode`, `Settings`)
+  - `1` / `Enter` — launch model & open Agent Chat | `2` — HF Models | `3` — Skills | `4` — Focus Mode | `U` — Update | `Q` — Quit
+  - In HF Models: `/` — search Hugging Face | `P` — hardware auto-match | `F` — pick quantization | `Enter` — download | `D` — delete local model
   - In Focus Mode: `Space` — toggle `[x] Keep` | `A` — select/deselect all | `Enter` — clean RAM | `F` — force-kill hung apps | `Ctrl+R` — restore closed apps
 
 ---
@@ -102,10 +107,11 @@ This automatically downloads the latest `llmLab-win64.zip` release, verifies `SH
 
 ### Основные возможности
 - **Анимация запуска 60 FPS:** плавное TrueColor-сканирование логотипа (`#00F5D4` → `#3A86FF`) с белым импульсом центрального выреза `</>` и живой диагностикой железа (P/E-ядра CPU, AVX2/NEON, видеокарта через DXGI, доступность Vulkan/OpenVINO и оценка свободной памяти под GGUF). Пропускается по `Enter`/`Space` или флагом `--fast`.
-- **Режим «Только ИИ» (Focus Mode):** показывает открытые окна и тяжёлые фоновые процессы (`> 80 МБ`) с жёсткой защитой критических служб Windows, аудиодрайверов, VPN и вашего терминала. Клавишей `Space` вы отмечаете, какие окна оставить (белый список сохраняется в `%USERPROFILE%\.llmlab\keep_apps.json`), мягко закрываете остальное через `WM_CLOSE`, видите счётчик освобождённой RAM и возвращаете закрытые программы в один клик (`Ctrl+R` или при выходе).
-- **Auto-Tuner под процессор и питание:** на гибридных процессорах Intel выставляет `--threads` строго по числу быстрых P-ядер, автоматически переключает Windows в режим **Высокая производительность** (`powercfg`) на время инференса и запускает движок с приоритетом `HIGH_PRIORITY_CLASS`.
-- **Поддержка локальных и облачных движков:** `llama.cpp` (AVX2 и Vulkan), `OpenVINO`, `bitnet.cpp`, а также облачное ускорение (`Groq`, `Cerebras`, `OpenRouter`) на 300+ tok/s.
-- **Консольный чат + Speed HUD:** в реальном времени отображает `tok/s`, `TTFT` (время до первого токена), занятую RAM и загрузку CPU.
+- **Прямой Hugging Face Hub и автоподбор под ПК:** ищет GGUF-модели напрямую через `huggingface.co/api`, оценивает совместимость с RAM/CPU/GPU вашего ПК (`[OK · Быстро]` / `[Мало RAM]`), показывает квантования (`Q4_K_M`, `IQ4_XS`, `Q5_K_M`) и скачивает выбранную модель прямо в `models/`.
+- **ИИ-агент со скиллами и поиском в интернете:** ReAct-цикл (`Builder Agent`, `Web Agent`, `Fast Chat`) с веб-поиском (DuckDuckGo), чтением страниц по URL, созданием приложений в песочнице `./workspace` и запуском команд сборки.
+- **Навигация по стрелкам и чистое обновление:** переключайтесь между вкладками клавишами `←` / `→`. При запуске `install.ps1` или `llmLab --update` старый процесс и прежний `llmLab.exe` автоматически удаляются перед установкой новой версии.
+- **Режим «Только ИИ» (Focus Mode):** показывает открытые окна и процессы (`> 80 МБ`), защищает службы Windows/VPN/аудио, освобождает ОЗУ через `WM_CLOSE` и возвращает закрытые программы по `Ctrl+R`.
+- **Auto-Tuner + Speed HUD:** выставляет потоки по быстрым P-ядрам, включает `High Performance` на время работы и отображает `tok/s` и `TTFT`.
 
 ---
 
@@ -154,8 +160,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubus
 ### Флаги запуска и горячие клавиши
 - **Флаги CLI:**
   - `--fast` — пропустить стартовую анимацию.
+  - `--models` — сразу открыть каталог Hugging Face.
   - `--focus` — сразу открыть режим очистки ОЗУ «Только ИИ».
+  - `--update` — удалить старую версию и установить свежий релиз с GitHub.
   - `--ascii` — принудительно включить ASCII-логотип для старого `cmd.exe` без UTF-8.
 - **Горячие клавиши:**
-  - `1` / `Enter` — запуск модели и чат | `2` — Focus Mode | `3` — Настройки | `Q` — Выход
+  - `←` / `→` / `Tab` — переключение вкладок (`Обзор`, `Модели HF`, `Агент / Чат`, `Скиллы`, `Только ИИ`, `Настройки`)
+  - `1` / `Enter` — запуск модели и Агент-чата | `2` — Модели HF | `3` — Скиллы | `4` — Только ИИ | `U` — Обновить | `Q` — Выход
+  - В «Модели HF»: `/` — поиск по Hugging Face | `P` — автоподбор под ПК | `F` — выбор квантования | `Enter` — скачать | `D` — удалить локальную модель
   - В Focus Mode: `Space` — отметить `[x] Оставить` | `A` — выбрать/снять всё | `Enter` — очистить RAM | `F` — принудительно завершить зависшие процессы | `Ctrl+R` — восстановить закрытые окна

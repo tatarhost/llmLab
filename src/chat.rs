@@ -1,6 +1,10 @@
+use crate::agent::{
+    build_agent_system_prompt, execute_tool, extract_tool_call, AgentRole, SkillFlags,
+};
 use crate::config::{AppConfig, EngineKind};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
@@ -22,6 +26,8 @@ pub struct SpeedHud {
 #[derive(Debug, Clone)]
 pub enum StreamEvent {
     Delta(String),
+    ToolLog(String),
+    AppendAssistantMessage,
     Stats {
         tok_per_sec: f64,
         ttft_ms: Option<u64>,
@@ -73,6 +79,9 @@ pub fn parse_sse_data_line(line: &str) -> Option<String> {
 pub fn spawn_chat_stream(
     cfg: AppConfig,
     history: Vec<ChatMessage>,
+    agent_role: AgentRole,
+    skills: SkillFlags,
+    workspace_dir: PathBuf,
     tx: mpsc::UnboundedSender<StreamEvent>,
 ) {
     tokio::spawn(async move {
@@ -102,80 +111,140 @@ pub fn spawn_chat_stream(
             return;
         }
 
+        let sys_prompt = build_agent_system_prompt(&cfg.system_prompt, agent_role, &skills);
         let mut messages = vec![ChatMessage {
             role: "system".to_string(),
-            content: cfg.system_prompt.clone(),
+            content: sys_prompt,
         }];
         messages.extend(history);
 
-        let payload = ChatRequestPayload {
-            model,
-            messages,
-            stream: true,
-            temperature: 0.7,
+        let client = reqwest::Client::new();
+        let max_turns = if skills.web_search || skills.file_builder || skills.shell_exec {
+            4
+        } else {
+            1
         };
 
-        let client = reqwest::Client::new();
-        let mut req = client.post(&endpoint).json(&payload);
-        if let Some(key) = api_key {
-            req = req.bearer_auth(key);
-        }
+        for turn in 0..max_turns {
+            let payload = ChatRequestPayload {
+                model: model.clone(),
+                messages: messages.clone(),
+                stream: true,
+                temperature: 0.4,
+            };
 
-        let started_at = Instant::now();
-        let resp = match req.send().await {
-            Ok(r) => r,
-            Err(err) => {
-                let _ = tx.send(StreamEvent::Error(format!("Ошибка подключения: {err}")));
+            let mut req = client.post(&endpoint).json(&payload);
+            if let Some(ref key) = api_key {
+                req = req.bearer_auth(key);
+            }
+
+            let started_at = Instant::now();
+            let resp = match req.send().await {
+                Ok(r) => r,
+                Err(err) => {
+                    let _ = tx.send(StreamEvent::Error(format!("Ошибка подключения: {err}")));
+                    return;
+                }
+            };
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                let _ = tx.send(StreamEvent::Error(format!(
+                    "HTTP {status}: {}",
+                    body.chars().take(180).collect::<String>()
+                )));
                 return;
             }
-        };
 
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            let _ = tx.send(StreamEvent::Error(format!(
-                "HTTP {status}: {}",
-                body.chars().take(180).collect::<String>()
-            )));
-            return;
-        }
+            let mut stream = resp.bytes_stream();
+            let mut buffer = String::new();
+            let mut first_token_at: Option<Instant> = None;
+            let mut ttft_ms: Option<u64> = None;
+            let mut token_chunks = 0usize;
+            let mut full_turn_text = String::new();
 
-        let mut stream = resp.bytes_stream();
-        let mut buffer = String::new();
-        let mut first_token_at: Option<Instant> = None;
-        let mut ttft_ms: Option<u64> = None;
-        let mut token_chunks = 0usize;
+            while let Some(chunk_res) = stream.next().await {
+                let Ok(bytes) = chunk_res else {
+                    let _ = tx.send(StreamEvent::Error("Поток прерван".to_string()));
+                    return;
+                };
+                buffer.push_str(&String::from_utf8_lossy(&bytes));
 
-        while let Some(chunk_res) = stream.next().await {
-            let Ok(bytes) = chunk_res else {
-                let _ = tx.send(StreamEvent::Error("Поток прерван".to_string()));
-                return;
-            };
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].to_string();
+                    buffer.drain(..=pos);
 
-            while let Some(pos) = buffer.find('\n') {
-                let line = buffer[..pos].to_string();
-                buffer.drain(..=pos);
+                    if let Some(text) = parse_sse_data_line(&line) {
+                        if first_token_at.is_none() {
+                            let now = Instant::now();
+                            first_token_at = Some(now);
+                            ttft_ms = Some(now.duration_since(started_at).as_millis() as u64);
+                        }
+                        token_chunks += 1;
+                        full_turn_text.push_str(&text);
+                        let gen_secs = first_token_at
+                            .map(|t| t.elapsed().as_secs_f64().max(0.001))
+                            .unwrap_or(0.001);
+                        let tok_per_sec = token_chunks as f64 / gen_secs;
 
-                if let Some(text) = parse_sse_data_line(&line) {
-                    if first_token_at.is_none() {
-                        let now = Instant::now();
-                        first_token_at = Some(now);
-                        ttft_ms = Some(now.duration_since(started_at).as_millis() as u64);
+                        let _ = tx.send(StreamEvent::Delta(text));
+                        let _ = tx.send(StreamEvent::Stats {
+                            tok_per_sec,
+                            ttft_ms,
+                            tokens_generated: token_chunks,
+                        });
                     }
-                    token_chunks += 1;
-                    let gen_secs = first_token_at
-                        .map(|t| t.elapsed().as_secs_f64().max(0.001))
-                        .unwrap_or(0.001);
-                    let tok_per_sec = token_chunks as f64 / gen_secs;
-
-                    let _ = tx.send(StreamEvent::Delta(text));
-                    let _ = tx.send(StreamEvent::Stats {
-                        tok_per_sec,
-                        ttft_ms,
-                        tokens_generated: token_chunks,
-                    });
                 }
+            }
+
+            // Inspect if the model emitted a structured <<<TOOL ... >>> request
+            let Some(call) = extract_tool_call(&full_turn_text) else {
+                break;
+            };
+
+            let target_info = if !call.query.is_empty() {
+                call.query.clone()
+            } else if !call.command.is_empty() {
+                call.command.clone()
+            } else {
+                call.path.clone()
+            };
+            let _ = tx.send(StreamEvent::ToolLog(format!(
+                "[Шаг {} · {}] {}",
+                turn + 1,
+                call.name,
+                target_info
+            )));
+
+            let is_sensitive = matches!(call.name.as_str(), "write_file" | "run_command");
+            let result_text = if is_sensitive && !skills.auto_approve_tools {
+                format!(
+                    "Инструмент '{}' требует разрешения: включите [Автоподтверждение инструментов] во вкладке Скиллы (F4) и повторите.",
+                    call.name
+                )
+            } else {
+                execute_tool(&call, &workspace_dir, &skills).await
+            };
+
+            let short_preview: String = result_text.chars().take(120).collect();
+            let _ = tx.send(StreamEvent::ToolLog(format!(
+                "[Ответ {}] {}",
+                call.name,
+                short_preview.replace('\n', " ")
+            )));
+
+            messages.push(ChatMessage {
+                role: "assistant".to_string(),
+                content: full_turn_text,
+            });
+            messages.push(ChatMessage {
+                role: "user".to_string(),
+                content: format!("[TOOL RESULT: {}]\n{}", call.name, result_text),
+            });
+
+            if turn + 1 < max_turns {
+                let _ = tx.send(StreamEvent::AppendAssistantMessage);
             }
         }
 

@@ -10,6 +10,16 @@ export interface ProcessSample {
   keep: boolean;
 }
 
+export interface HfModelSample {
+  id: string;
+  repo: string;
+  quant: string;
+  sizeGb: number;
+  fit: Record<Locale, string>;
+  fitsPc: boolean;
+  speed: string;
+}
+
 export interface EngineSpec {
   id: EngineId;
   label: string;
@@ -51,6 +61,45 @@ export const INITIAL_FOCUS_PROCESSES: ProcessSample[] = [
   { id: 'spotify', name: 'Spotify.exe', title: 'Spotify Desktop', ramMb: 410, keep: false },
   { id: 'code', name: 'Code.exe', title: 'Visual Studio Code', ramMb: 1180, keep: true },
   { id: 'telegram', name: 'Telegram.exe', title: 'Telegram Desktop', ramMb: 340, keep: true },
+];
+
+export const HF_MODEL_SAMPLES: HfModelSample[] = [
+  {
+    id: 'qwen-3b',
+    repo: 'Qwen/Qwen2.5-3B-Instruct-GGUF',
+    quant: 'Q4_K_M',
+    sizeGb: 2.1,
+    fit: { ru: '[OK · Быстро]', en: '[OK · Fast]' },
+    fitsPc: true,
+    speed: '18–28 tok/s',
+  },
+  {
+    id: 'qwen-coder-3b',
+    repo: 'Qwen/Qwen2.5-Coder-3B-Instruct-GGUF',
+    quant: 'Q4_K_M',
+    sizeGb: 2.1,
+    fit: { ru: '[OK · Код]', en: '[OK · Code]' },
+    fitsPc: true,
+    speed: '18–28 tok/s',
+  },
+  {
+    id: 'qwen-7b',
+    repo: 'Qwen/Qwen2.5-7B-Instruct-GGUF',
+    quant: 'Q4_K_M',
+    sizeGb: 4.7,
+    fit: { ru: '[OK · Норма]', en: '[OK · Fit]' },
+    fitsPc: true,
+    speed: '9–15 tok/s',
+  },
+  {
+    id: 'qwen-14b',
+    repo: 'bartowski/Qwen2.5-14B-Instruct-GGUF',
+    quant: 'Q4_K_M',
+    sizeGb: 9.0,
+    fit: { ru: '[Мало RAM]', en: '[Tight RAM]' },
+    fitsPc: false,
+    speed: '< 4 tok/s',
+  },
 ];
 
 export const ENGINE_SPECS: EngineSpec[] = [
@@ -154,6 +203,8 @@ export interface SiteCopy {
   simulator: {
     tabs: {
       splash: string;
+      hf: string;
+      agent: string;
       focus: string;
       hud: string;
     };
@@ -167,6 +218,9 @@ export interface SiteCopy {
     statusClose: string;
     protectedNote: string;
     streamPromptBtn: string;
+    hfAutoPickBtn: string;
+    hfDownloadBtn: string;
+    agentRunBtn: string;
   };
   capabilities: {
     heading: string;
@@ -207,10 +261,10 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       cta: 'Команда',
     },
     hero: {
-      meta: 'Windows 10 / 11 x64 · Нативный Rust TUI · < 25 МБ RAM',
-      title: 'Локальные ИИ-модели в консоли на максимальной скорости',
+      meta: 'Windows 10 / 11 x64 · Rust TUI Агент · Hugging Face Hub',
+      title: 'Локальный ИИ-агент и Hugging Face в лёгкой консоли Windows',
       subtitle:
-        'Сверхлёгкая среда запуска GGUF-моделей для Windows без дискретной видеокарты. Управляет окнами для освобождения RAM, настраивает P-ядра и считает tok/s.',
+        'Прямой поиск и автоподбор GGUF-моделей с Hugging Face под ваш ПК, автономный агент со скиллами (поиск в интернете, сборка приложений в workspace), очистка RAM и навигация стрелками.',
       copyBtn: 'Копировать',
       copiedBtn: 'Скопировано',
       releaseBtn: 'Релизы GitHub',
@@ -221,14 +275,16 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       },
       commandHint: {
         powershell:
-          'Скачивает llmLab-win64.zip, проверяет SHA256, прописывает PATH, создаёт ярлык на Рабочем столе и запускает llmLab.',
-        cmd: 'Запуск установщика из обычной командной строки или диалога Win + R.',
-        source: 'Сборка с генерацией multi-res icon.ico через Pillow и вшиванием в .exe.',
+          'Удаляет старую версию llmLab.exe, скачивает свежий релиз, проверяет SHA256, настраивает PATH и запускает.',
+        cmd: 'Установка или обновление из обычной командной строки или диалога Win + R.',
+        source: 'Сборка из исходников с генерацией иконки icon.ico и вшиванием в .exe.',
       },
     },
     simulator: {
       tabs: {
         splash: 'Запуск',
+        hf: 'Модели HF',
+        agent: 'Агент + Web',
         focus: 'Только ИИ',
         hud: 'Чат + HUD',
       },
@@ -242,40 +298,43 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       statusClose: 'Закрыть',
       protectedNote: 'Системные службы Windows, VPN, аудио и терминал защищены.',
       streamPromptBtn: 'Запустить пример',
+      hfAutoPickBtn: 'Автоподбор под ПК',
+      hfDownloadBtn: 'Скачать GGUF',
+      agentRunBtn: 'Запустить задачу агента',
     },
     capabilities: {
       heading: 'Как устроен llmLab',
-      lead: 'Один нативный бинарник llmLab.exe без Electron, Python-рантайма и фоновых процессов.',
+      lead: 'Нативный Rust TUI с навигацией по стрелкам (←/→ вкладки, ↑/↓ списки) и автоматической заменой старой версии при обновлении.',
       items: [
         {
-          title: 'Режим «Только ИИ» с белым списком окон',
+          title: 'Прямой Hugging Face Hub и автоподбор под ПК',
           detail:
-            'Собирает открытые окна через EnumWindows и фоновые процессы тяжелее 80 МБ. Отмеченные [x] окна (Discord, Telegram, VS Code) остаются, остальное мягко закрывается по WM_CLOSE со снапшотом для возврата по Ctrl+R.',
-          spec: 'keep_apps.json · session_snapshot.json',
+            'Ищет GGUF-репозитории напрямую через Hugging Face API, анализирует свободный бюджет RAM/CPU/GPU, ранжирует совместимость ([OK · Быстро] / [Мало RAM]) и скачивает выбранное квантование с прогресс-баром.',
+          spec: 'huggingface.co/api · Auto-Match · Streaming .gguf',
         },
         {
-          title: 'Auto-Tuner под гибридные CPU и питание',
+          title: 'ИИ-Агент: скиллы, субагенты и веб-поиск',
           detail:
-            'Читает топологию P-ядер и E-ядер через GetLogicalProcessorInformationEx, привязывает потоки к P-ядрам, включает High Performance (powercfg) и ставит HIGH_PRIORITY_CLASS.',
-          spec: 'P-Core Threads · High Priority',
+            'Встроенный ReAct-цикл превращает локальную или облачную модель в агента: поиск в интернете (DuckDuckGo), чтение документации по URL, создание проектов в песочнице ./workspace и запуск сборки.',
+          spec: 'App Builder · Web Search · Sandboxed ./workspace',
         },
         {
-          title: 'Консольная анимация без мерцания',
+          title: 'Интерфейс на стрелках + Режим «Только ИИ»',
           detail:
-            'Двухбуферный рендер 60 FPS с построчным появлением логотипа, вспышкой центральной зоны </>, выводом параметров CPU/GPU/RAM и ASCII-фоллбэком для старого cmd.exe.',
-          spec: '1.4s Startup · Enter / --fast',
+            'Переключайтесь между вкладками клавишами ←/→, управляйте списками ↑/↓. Режим «Только ИИ» закрывает лишние процессы по WM_CLOSE со снапшотом возврата по Ctrl+R.',
+          spec: '←/→ Tabs · ↑/↓ Lists · Ctrl+R Restore',
         },
         {
-          title: 'Потребление < 25 МБ RAM',
+          title: 'Чистое обновление с удалением старой версии',
           detail:
-            'Сборка с LTO и strip оставляет максимум оперативной памяти под саму GGUF-модель и KV-кэш q8_0.',
-          spec: 'x86_64-pc-windows-msvc · LTO',
+            'При повторном запуске установщика или флага llmLab --update старый процесс останавливается, прежний llmLab.exe и временные файлы удаляются, а config.toml и скачанные модели сохраняются.',
+          spec: 'llmLab --update · Clean Binary Replace',
         },
       ],
     },
     engines: {
       heading: 'Движки и профили запуска',
-      lead: 'Выберите бэкенд под вашу конфигурацию — от старого CPU с AVX2 до облачных API.',
+      lead: 'Автоматический подбор потоков P-ядер и параметров памяти под вашу конфигурацию.',
       flagsLabel: 'Параметры запуска',
     },
     tutorial: {
@@ -283,23 +342,23 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       steps: [
         {
           step: '01',
-          title: 'Установите одной командой',
-          body: 'Выполните команду PowerShell выше. Скрипт настроит PATH, создаст config.toml и папку models.',
+          title: 'Установите или обновитесь одной командой',
+          body: 'Запустите команду PowerShell выше — скрипт удалит старую версию, скачает свежий релиз и настроит PATH.',
         },
         {
           step: '02',
-          title: 'Освободите RAM в Focus Mode',
-          body: 'Нажмите [2] в меню (или llmLab --focus), отметьте нужные окна клавишей Space и нажмите Enter.',
+          title: 'Подберите и скачайте модель с Hugging Face',
+          body: 'Перейдите стрелкой → во вкладку «Модели HF», нажмите P для автоподбора или / для поиска, затем Enter для загрузки.',
         },
         {
           step: '03',
-          title: 'Запустите модель или Cloud API',
-          body: 'Поместите .gguf модель в models/ (рядом с llama-server.exe) или задайте LLMLAB_API_KEY для 300+ tok/s.',
+          title: 'Включите скиллы агента и веб-поиск',
+          body: 'Во вкладке «Скиллы» активируйте веб-поиск и сборку приложений в ./workspace, затем поставьте задачу во вкладке «Агент / Чат».',
         },
       ],
     },
     footer: {
-      tagline: 'llmLab — нативная консольная среда для локального ИИ (Windows x64)',
+      tagline: 'llmLab — нативный локальный ИИ-агент и TUI для Windows x64',
       github: 'GitHub',
       releases: 'Релизы',
     },
@@ -313,10 +372,10 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       cta: 'Get Command',
     },
     hero: {
-      meta: 'Windows 10 / 11 x64 · Native Rust TUI · < 25 MB RAM',
-      title: 'Local AI models in your terminal at full hardware speed',
+      meta: 'Windows 10 / 11 x64 · Rust AI Agent TUI · Hugging Face Hub',
+      title: 'Local AI Agent & Hugging Face Hub inside a fast Windows terminal',
       subtitle:
-        'An ultra-lightweight GGUF runtime for Windows without a discrete GPU. Reclaims RAM while keeping chosen windows, pins threads to P-cores, and tracks tok/s live.',
+        'Direct Hugging Face GGUF search with hardware-based auto-selection, autonomous Skills & Web Search agents for building PC apps in ./workspace, Focus Mode RAM cleaner, and arrow-key navigation.',
       copyBtn: 'Copy',
       copiedBtn: 'Copied',
       releaseBtn: 'GitHub Releases',
@@ -327,14 +386,16 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       },
       commandHint: {
         powershell:
-          'Downloads llmLab-win64.zip, verifies SHA256, updates PATH, creates a Desktop shortcut, and launches llmLab.',
-        cmd: 'Runs the installer directly from Command Prompt or Win + R.',
-        source: 'Builds locally and embeds a multi-res icon.ico via Pillow and winres.',
+          'Removes old llmLab.exe versions, downloads latest release, verifies SHA256, updates PATH, and launches.',
+        cmd: 'Install or upgrade from Command Prompt or Win + R.',
+        source: 'Builds locally with Pillow multi-res icon.ico embedded via winres.',
       },
     },
     simulator: {
       tabs: {
         splash: 'Startup',
+        hf: 'HF Models',
+        agent: 'Agent + Web',
         focus: 'Focus Mode',
         hud: 'Chat + HUD',
       },
@@ -348,34 +409,37 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       statusClose: 'Close',
       protectedNote: 'Core Windows services, VPNs, audio, and terminal stay protected.',
       streamPromptBtn: 'Run Sample',
+      hfAutoPickBtn: 'Auto-Match PC',
+      hfDownloadBtn: 'Download GGUF',
+      agentRunBtn: 'Run Agent Task',
     },
     capabilities: {
       heading: 'How llmLab works',
-      lead: 'A single native llmLab.exe binary with zero Electron, Python runtime, or background daemons.',
+      lead: 'Native arrow-key TUI (←/→ tabs, ↑/↓ lists) with direct Hugging Face downloads and clean old-binary replacement on upgrade.',
       items: [
         {
-          title: 'AI Focus Mode with Window Whitelist',
+          title: 'Direct Hugging Face Hub & PC Auto-Picker',
           detail:
-            'Enumerates visible windows via EnumWindows and processes over 80 MB. Kept apps (Discord, Telegram, VS Code) stay open; everything else closes cleanly via WM_CLOSE with a Ctrl+R restore snapshot.',
-          spec: 'keep_apps.json · session_snapshot.json',
+            'Searches GGUF models live via Hugging Face API, scores hardware fit ([OK · Fast] / [Tight RAM]) against available RAM/CPU/GPU, and streams quantizations directly into ./models.',
+          spec: 'huggingface.co/api · Auto-Match · Streaming .gguf',
         },
         {
-          title: 'Hybrid CPU & Power Auto-Tuner',
+          title: 'AI Agent with Skills, Sub-Agents & Web Search',
           detail:
-            'Reads exact P-cores and E-cores via GetLogicalProcessorInformationEx, pins threads to P-cores, enables High Performance via powercfg, and sets HIGH_PRIORITY_CLASS.',
-          spec: 'P-Core Threads · High Priority',
+            'Turns local or cloud LLMs into a tool-using agent: DuckDuckGo web search, URL doc fetching, sandboxed ./workspace file creation, and build command execution.',
+          spec: 'App Builder · Web Search · Sandboxed ./workspace',
         },
         {
-          title: 'Flicker-Free Startup Probe',
+          title: 'Arrow-Key GUI & AI Focus Mode',
           detail:
-            'Double-buffered 60 FPS scanline reveal, </> visor flash, live CPU/GPU/RAM readout, and automatic ASCII fallback on legacy cmd.exe consoles.',
-          spec: '1.4s Startup · Enter / --fast',
+            'Switch tabs cleanly with ←/→ and navigate lists with ↑/↓. Focus Mode reclaims RAM via WM_CLOSE while preserving selected apps and Ctrl+R restoration.',
+          spec: '←/→ Tabs · ↑/↓ Lists · Ctrl+R Restore',
         },
         {
-          title: 'Under 25 MB RAM Footprint',
+          title: 'Clean Old-Version Removal on Update',
           detail:
-            'Compiled with LTO and symbol stripping so maximum memory remains available for your GGUF weights and q8_0 KV cache.',
-          spec: 'x86_64-pc-windows-msvc · LTO',
+            'Running the installer again or llmLab --update stops the running process, deletes the old llmLab.exe binary, and keeps your config.toml and downloaded models intact.',
+          spec: 'llmLab --update · Clean Binary Replace',
         },
       ],
     },
@@ -389,23 +453,23 @@ export const SITE_COPY: Record<Locale, SiteCopy> = {
       steps: [
         {
           step: '01',
-          title: 'Install in one command',
-          body: 'Run the PowerShell snippet above to configure PATH, create config.toml, and prepare models/.',
+          title: 'Install or upgrade in one command',
+          body: 'Run the PowerShell snippet above to remove any old version, install the latest release, and configure PATH.',
         },
         {
           step: '02',
-          title: 'Free RAM in Focus Mode',
-          body: 'Press [2] on the dashboard (or run llmLab --focus), mark apps to keep with Space, and press Enter.',
+          title: 'Auto-pick & download from Hugging Face',
+          body: 'Press → to open HF Models, press P for hardware auto-match or / to search, then Enter to download.',
         },
         {
           step: '03',
-          title: 'Run a GGUF model or Cloud API',
-          body: 'Drop a .gguf file into models/ alongside llama-server.exe, or set LLMLAB_API_KEY for 300+ tok/s.',
+          title: 'Enable Agent Skills & Web Search',
+          body: 'Toggle web search and ./workspace builder in Skills, then give your agent a task in Agent / Chat.',
         },
       ],
     },
     footer: {
-      tagline: 'llmLab — native local AI terminal runtime for Windows x64',
+      tagline: 'llmLab — native local AI agent & TUI runtime for Windows x64',
       github: 'GitHub',
       releases: 'Releases',
     },

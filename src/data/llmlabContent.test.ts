@@ -5,6 +5,7 @@ import {
   ENGINE_SPECS,
   formatRamGb,
   getInstallCommand,
+  HF_MODEL_SAMPLES,
   INITIAL_FOCUS_PROCESSES,
   LOGO_LINES,
   SITE_COPY,
@@ -29,9 +30,14 @@ test('calculateFreedRamMb sums only non-kept processes', () => {
   assert.equal(formatRamGb(4190), '4.09 GB');
 });
 
-test('bilingual content and logo lines stay complete', () => {
+test('bilingual content, HF catalog, and logo lines stay complete', () => {
   assert.equal(LOGO_LINES.length, 18);
   assert.equal(SITE_COPY.ru.capabilities.items.length, 4);
   assert.equal(SITE_COPY.en.capabilities.items.length, 4);
+  assert.equal(Object.keys(SITE_COPY.ru.simulator.tabs).length, 5);
+  assert.equal(Object.keys(SITE_COPY.en.simulator.tabs).length, 5);
   assert.equal(ENGINE_SPECS.length, 4);
+  assert.ok(HF_MODEL_SAMPLES.length >= 4);
+  assert.ok(HF_MODEL_SAMPLES.some((m) => m.fitsPc));
+  assert.ok(HF_MODEL_SAMPLES.some((m) => !m.fitsPc));
 });

@@ -1,10 +1,14 @@
+use crate::agent::{AgentRole, SkillFlags};
 use crate::chat::{spawn_chat_stream, ChatMessage, SpeedHud, StreamEvent};
-use crate::config::{
-    discover_gguf_models, load_config, save_config, AppConfig, EngineKind,
-};
+use crate::config::{discover_gguf_models, load_config, save_config, AppConfig, EngineKind};
 use crate::focus_mode::FocusModeState;
 use crate::hardware::HardwareProfile;
+use crate::hf::{
+    auto_pick_curated_models, spawn_hf_download, spawn_hf_list_files, spawn_hf_search, HfEvent,
+    HfFileEntry, HfModelCandidate,
+};
 use crate::tuner::{build_engine_launch_spec, spawn_tuned_engine, PowerPlanGuard};
+use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 use sysinfo::System;
@@ -15,9 +19,48 @@ use tokio::sync::mpsc;
 pub enum Screen {
     Splash,
     Dashboard,
-    FocusMode,
+    Models,
     Chat,
+    Skills,
+    FocusMode,
     Settings,
+}
+
+impl Screen {
+    pub const NAV_TABS: [Self; 6] = [
+        Self::Dashboard,
+        Self::Models,
+        Self::Chat,
+        Self::Skills,
+        Self::FocusMode,
+        Self::Settings,
+    ];
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Splash => "Запуск",
+            Self::Dashboard => "Обзор",
+            Self::Models => "Модели HF",
+            Self::Chat => "Агент / Чат",
+            Self::Skills => "Скиллы",
+            Self::FocusMode => "Только ИИ",
+            Self::Settings => "Настройки",
+        }
+    }
+
+    pub fn next_tab(self) -> Self {
+        let Some(pos) = Self::NAV_TABS.iter().position(|&s| s == self) else {
+            return Self::Dashboard;
+        };
+        Self::NAV_TABS[(pos + 1) % Self::NAV_TABS.len()]
+    }
+
+    pub fn prev_tab(self) -> Self {
+        let Some(pos) = Self::NAV_TABS.iter().position(|&s| s == self) else {
+            return Self::Dashboard;
+        };
+        Self::NAV_TABS[(pos + Self::NAV_TABS.len() - 1) % Self::NAV_TABS.len()]
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +86,15 @@ impl SettingField {
     ];
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct DownloadProgressState {
+    pub active: bool,
+    pub file_name: String,
+    pub downloaded: u64,
+    pub total: u64,
+    pub speed_mb_s: f64,
+}
+
 pub struct App {
     pub screen: Screen,
     pub use_utf8: bool,
@@ -64,6 +116,23 @@ pub struct App {
     pub engine_child: Option<Child>,
     pub power_guard: Option<PowerPlanGuard>,
     pub stream_tx: mpsc::UnboundedSender<StreamEvent>,
+    // Hugging Face Hub state
+    pub hf_tx: mpsc::UnboundedSender<HfEvent>,
+    pub hf_query: String,
+    pub hf_search_focused: bool,
+    pub hf_candidates: Vec<HfModelCandidate>,
+    pub hf_selected_idx: usize,
+    pub hf_repo_files: Vec<HfFileEntry>,
+    pub hf_active_repo: Option<String>,
+    pub hf_file_idx: usize,
+    pub hf_in_file_picker: bool,
+    pub hf_download: DownloadProgressState,
+    // Agent & Skills state
+    pub agent_role: AgentRole,
+    pub skills: SkillFlags,
+    pub skill_cursor: usize,
+    pub agent_logs: Vec<String>,
+    pub workspace_dir: PathBuf,
 }
 
 impl App {
@@ -72,6 +141,7 @@ impl App {
         start_in_focus: bool,
         use_utf8: bool,
         stream_tx: mpsc::UnboundedSender<StreamEvent>,
+        hf_tx: mpsc::UnboundedSender<HfEvent>,
     ) -> Self {
         let cfg = load_config(None);
         let models = discover_gguf_models(&cfg.models_dir);
@@ -93,6 +163,8 @@ impl App {
             Screen::Splash
         };
 
+        let hf_candidates = auto_pick_curated_models(&hw);
+
         Self {
             screen: initial_screen,
             use_utf8,
@@ -108,12 +180,27 @@ impl App {
             chat_input: String::new(),
             chat_scroll: 0,
             speed_hud: SpeedHud::default(),
-            status_banner: "Готово к работе. Выберите модель GGUF или откройте Focus Mode.".to_string(),
+            status_banner: "Стрелки ←/→ переключают вкладки · ↑/↓ выбор · Enter запуск".to_string(),
             show_exit_restore_modal: false,
             should_quit: false,
             engine_child: None,
             power_guard: None,
             stream_tx,
+            hf_tx,
+            hf_query: String::new(),
+            hf_search_focused: false,
+            hf_candidates,
+            hf_selected_idx: 0,
+            hf_repo_files: Vec::new(),
+            hf_active_repo: None,
+            hf_file_idx: 0,
+            hf_in_file_picker: false,
+            hf_download: DownloadProgressState::default(),
+            agent_role: AgentRole::AppBuilder,
+            skills: SkillFlags::default(),
+            skill_cursor: 0,
+            agent_logs: vec!["Агент готов: веб-поиск и песочница ./workspace активны.".to_string()],
+            workspace_dir: PathBuf::from("./workspace"),
         }
     }
 
@@ -125,6 +212,177 @@ impl App {
         self.models = discover_gguf_models(&self.cfg.models_dir);
         if self.selected_model_idx >= self.models.len() {
             self.selected_model_idx = self.models.len().saturating_sub(1);
+        }
+    }
+
+    pub fn delete_selected_local_model(&mut self) {
+        let Some(path) = self.selected_model().cloned() else {
+            self.status_banner = "Нет выбранной локальной модели для удаления.".to_string();
+            return;
+        };
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("model.gguf")
+            .to_string();
+        match fs::remove_file(&path) {
+            Ok(_) => {
+                self.refresh_models();
+                self.status_banner = format!("Удалена локальная модель: {name}");
+            }
+            Err(err) => {
+                self.status_banner = format!("Не удалось удалить {name}: {err}");
+            }
+        }
+    }
+
+    pub fn trigger_hf_search(&mut self) {
+        self.hf_in_file_picker = false;
+        self.hf_repo_files.clear();
+        self.status_banner = if self.hf_query.trim().is_empty() {
+            "Поиск популярных GGUF моделей на Hugging Face...".to_string()
+        } else {
+            format!("Поиск на Hugging Face: '{}'...", self.hf_query.trim())
+        };
+        spawn_hf_search(
+            self.hf_query.clone(),
+            self.hw.recommended_model_budget_bytes,
+            self.hw.gpu.vulkan_available,
+            self.hf_tx.clone(),
+        );
+    }
+
+    pub fn trigger_hw_auto_pick(&mut self) {
+        self.hf_in_file_picker = false;
+        self.hf_repo_files.clear();
+        self.hf_candidates = auto_pick_curated_models(&self.hw);
+        self.hf_selected_idx = 0;
+        self.status_banner = "Выполнен автоподбор моделей под RAM/CPU/GPU этого ПК.".to_string();
+    }
+
+    pub fn open_or_download_hf_item(&mut self) {
+        if self.hf_in_file_picker {
+            if let (Some(repo), Some(file)) = (
+                self.hf_active_repo.clone(),
+                self.hf_repo_files.get(self.hf_file_idx).cloned(),
+            ) {
+                self.hf_download = DownloadProgressState {
+                    active: true,
+                    file_name: file.path.clone(),
+                    downloaded: 0,
+                    total: file.size_bytes,
+                    speed_mb_s: 0.0,
+                };
+                self.status_banner = format!("Загрузка {} из {}...", file.path, repo);
+                spawn_hf_download(
+                    repo,
+                    file.path,
+                    self.cfg.models_dir.clone(),
+                    self.hf_tx.clone(),
+                );
+            }
+            return;
+        }
+
+        let Some(candidate) = self.hf_candidates.get(self.hf_selected_idx).cloned() else {
+            return;
+        };
+
+        if let Some(rec_file) = candidate.recommended_file {
+            self.hf_download = DownloadProgressState {
+                active: true,
+                file_name: rec_file.clone(),
+                downloaded: 0,
+                total: 0,
+                speed_mb_s: 0.0,
+            };
+            self.status_banner = format!("Прямое скачивание {rec_file} с Hugging Face...");
+            spawn_hf_download(
+                candidate.repo_id,
+                rec_file,
+                self.cfg.models_dir.clone(),
+                self.hf_tx.clone(),
+            );
+        } else {
+            self.status_banner = format!("Получение GGUF-файлов из {}...", candidate.repo_id);
+            spawn_hf_list_files(candidate.repo_id, self.hf_tx.clone());
+        }
+    }
+
+    pub fn inspect_hf_repo_files(&mut self) {
+        if let Some(candidate) = self.hf_candidates.get(self.hf_selected_idx).cloned() {
+            self.status_banner = format!("Запрос квантований {}...", candidate.repo_id);
+            spawn_hf_list_files(candidate.repo_id, self.hf_tx.clone());
+        }
+    }
+
+    pub fn handle_hf_event(&mut self, event: HfEvent) {
+        match event {
+            HfEvent::SearchResults { query, items } => {
+                self.hf_candidates = items;
+                self.hf_selected_idx = 0;
+                self.hf_in_file_picker = false;
+                self.status_banner = format!(
+                    "Hugging Face: найдено {} моделей{}",
+                    self.hf_candidates.len(),
+                    if query.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!(" по '{query}'")
+                    }
+                );
+            }
+            HfEvent::RepoFiles { repo_id, files } => {
+                self.hf_active_repo = Some(repo_id.clone());
+                self.hf_repo_files = files;
+                self.hf_file_idx = 0;
+                self.hf_in_file_picker = true;
+                self.status_banner = format!(
+                    "{}: найдено {} .gguf файлов (↑/↓ выбор, Enter скачать, Esc назад)",
+                    repo_id,
+                    self.hf_repo_files.len()
+                );
+            }
+            HfEvent::DownloadProgress {
+                file_name,
+                downloaded,
+                total,
+                speed_mb_s,
+            } => {
+                self.hf_download = DownloadProgressState {
+                    active: true,
+                    file_name,
+                    downloaded,
+                    total,
+                    speed_mb_s,
+                };
+            }
+            HfEvent::DownloadDone { file_name, saved_path } => {
+                self.hf_download.active = false;
+                self.refresh_models();
+                if let Some(pos) = self.models.iter().position(|p| p == &saved_path) {
+                    self.selected_model_idx = pos;
+                }
+                self.status_banner = format!(
+                    "Модель скачана в {}: {file_name} (готова к запуску)",
+                    saved_path.display()
+                );
+            }
+            HfEvent::Error(err) => {
+                self.hf_download.active = false;
+                self.status_banner = err;
+            }
+        }
+    }
+
+    pub fn toggle_skill_at_cursor(&mut self) {
+        match self.skill_cursor {
+            0 => self.agent_role = self.agent_role.next(),
+            1 => self.skills.web_search = !self.skills.web_search,
+            2 => self.skills.file_builder = !self.skills.file_builder,
+            3 => self.skills.shell_exec = !self.skills.shell_exec,
+            4 => self.skills.auto_approve_tools = !self.skills.auto_approve_tools,
+            _ => {}
         }
     }
 
@@ -146,7 +404,7 @@ impl App {
 
         let Some(model_path) = self.selected_model().cloned() else {
             self.status_banner = format!(
-                "В папке '{}' не найдено .gguf моделей. Поместите модель или выберите CloudApi в Настройках [3].",
+                "В '{}' нет .gguf. Скачайте модель во вкладке [Модели HF] (→) или выберите CloudApi.",
                 self.cfg.models_dir
             );
             return;
@@ -208,7 +466,14 @@ impl App {
         self.speed_hud.ttft_ms = None;
 
         let history_to_send = self.chat_history[..self.chat_history.len() - 1].to_vec();
-        spawn_chat_stream(self.cfg.clone(), history_to_send, self.stream_tx.clone());
+        spawn_chat_stream(
+            self.cfg.clone(),
+            history_to_send,
+            self.agent_role,
+            self.skills.clone(),
+            self.workspace_dir.clone(),
+            self.stream_tx.clone(),
+        );
     }
 
     pub fn handle_stream_event(&mut self, event: StreamEvent) {
@@ -219,6 +484,19 @@ impl App {
                         last.content.push_str(&delta);
                     }
                 }
+            }
+            StreamEvent::ToolLog(entry) => {
+                self.agent_logs.push(entry);
+                if self.agent_logs.len() > 24 {
+                    let excess = self.agent_logs.len() - 24;
+                    self.agent_logs.drain(..excess);
+                }
+            }
+            StreamEvent::AppendAssistantMessage => {
+                self.chat_history.push(ChatMessage {
+                    role: "assistant".to_string(),
+                    content: String::new(),
+                });
             }
             StreamEvent::Stats {
                 tok_per_sec,
