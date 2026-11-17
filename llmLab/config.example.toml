@@ -1,0 +1,36 @@
+# Пример конфигурации llmLab
+# Скопируйте в config.toml рядом с llmLab.exe или в %USERPROFILE%\.llmlab\config.toml
+
+models_dir = "./models"
+
+# Варианты engine:
+#   "llama_cpp_avx2"   — llama.cpp на CPU (оптимально для ноутбуков без дискретной GPU)
+#   "llama_cpp_vulkan" — llama.cpp с разгрузкой слоёв на iGPU/GPU через Vulkan
+#   "open_vino"        — Intel OpenVINO GenAI (CPU / Intel Arc / Iris Xe)
+#   "bit_net"          — bitnet.cpp (сверхбыстрые 1.58-bit модели на CPU)
+#   "cloud_api"        — Облачное ускорение 300+ tok/s (Groq / Cerebras / OpenRouter)
+engine = "llama_cpp_avx2"
+
+llama_server_path = "llama-server.exe"
+llama_cli_path = "llama-cli.exe"
+openvino_cli_path = "openvino-genai-cli.exe"
+bitnet_cli_path = "bitnet-server.exe"
+
+server_port = 8089
+context_size = 4096
+flash_attn = true
+kv_cache_q8 = true
+mlock = false
+gpu_layers = 0
+
+# Авто-тюнинг Windows на время работы локальной модели
+high_performance_power = true
+high_process_priority = true
+
+# Настройки облачного ускорения (OpenAI-совместимый SSE API)
+cloud_provider = "groq"
+cloud_base_url = "https://api.groq.com/openai/v1"
+cloud_model = "llama-3.3-70b-versatile"
+cloud_api_key_env = "LLMLAB_API_KEY"
+
+system_prompt = "You are a fast, concise, and technically accurate local AI assistant."

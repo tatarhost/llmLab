@@ -1,0 +1,8 @@
+/target/
+/dist/
+llmLab-win64.zip
+SHA256SUMS.txt
+scripts/__pycache__/
+*.pyc
+config.toml
+models/*.gguf
