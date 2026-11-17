@@ -1,21 +1,15 @@
 # llmLab One-Command Windows Installer & Launcher
 # Usage:
-#   irm https://raw.githubusercontent.com/<OWNER>/llmLab/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 # Optional override:
-#   $env:LLMLAB_REPO = "owner/llmLab"; irm https://raw.githubusercontent.com/owner/llmLab/main/install.ps1 | iex
+#   $env:LLMLAB_REPO = "tatarhost/llmLab"; irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
-$Repo = if ($env:LLMLAB_REPO) { $env:LLMLAB_REPO } else { "OWNER/llmLab" }
+$Repo = if ($env:LLMLAB_REPO) { $env:LLMLAB_REPO } else { "tatarhost/llmLab" }
 $InstallDir = Join-Path $env:LOCALAPPDATA "llmLab"
 $ZipUrl = "https://github.com/$Repo/releases/latest/download/llmLab-win64.zip"
 $HashUrl = "https://github.com/$Repo/releases/latest/download/SHA256SUMS.txt"
-
-if ($Repo -eq "OWNER/llmLab") {
-    Write-Host "[!] Укажите ваш GitHub-репозиторий перед запуском:" -ForegroundColor Yellow
-    Write-Host '    $env:LLMLAB_REPO = "YOUR_GITHUB_USER/llmLab"; irm https://raw.githubusercontent.com/YOUR_GITHUB_USER/llmLab/main/install.ps1 | iex' -ForegroundColor Cyan
-    exit 1
-}
 
 Write-Host "==> Установка llmLab из https://github.com/$Repo ..." -ForegroundColor Cyan
 

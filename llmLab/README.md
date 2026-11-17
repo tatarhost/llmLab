@@ -46,11 +46,11 @@
 #### Option 1: One-Command Install & Launch (Recommended)
 Open **PowerShell** on Windows 10/11 and run:
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/llmLab/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 ```
 Or from `cmd.exe` / `Win + R`:
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/OWNER/llmLab/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex"
 ```
 This automatically downloads the latest `llmLab-win64.zip` release, verifies `SHA256`, extracts it to `%LOCALAPPDATA%\llmLab`, adds it to your `PATH`, creates a Desktop shortcut, and launches `llmLab`.
 
@@ -114,11 +114,11 @@ This automatically downloads the latest `llmLab-win64.zip` release, verifies `SH
 #### Способ 1: Запуск по одной команде (рекомендуется)
 Откройте **PowerShell** в Windows 10/11 и выполните:
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/llmLab/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex
 ```
 Или через `cmd.exe` / окно `Win + R`:
 ```cmd
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/OWNER/llmLab/main/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/tatarhost/llmLab/main/install.ps1 | iex"
 ```
 Скрипт автоматически скачает последний релиз `llmLab-win64.zip`, проверит контрольную сумму `SHA256`, распакует файлы в `%LOCALAPPDATA%\llmLab`, пропишет программу в `PATH`, создаст ярлык на Рабочем столе и сразу запустит `llmLab`.
 

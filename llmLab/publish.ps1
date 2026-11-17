@@ -1,10 +1,9 @@
-# Helper script to publish llmLab to your GitHub and trigger the first v0.1.0 release.
+# Helper script to publish llmLab to GitHub (tatarhost/llmLab) and trigger the first v0.1.0 release.
 # Run inside llmLab/ directory on your PC:
-#   .\publish.ps1 -Repo "your-username/llmLab"
+#   .\publish.ps1
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$Repo,
+    [string]$Repo = "tatarhost/llmLab",
     [string]$Version = "v0.1.0"
 )
 
