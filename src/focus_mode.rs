@@ -13,6 +13,7 @@ pub const BACKGROUND_RAM_THRESHOLD_MB: u64 = 80;
 
 /// Critical Windows OS, shell, audio, network/VPN, and terminal host processes
 /// that must NEVER be shown as kill targets or terminated.
+#[allow(dead_code)]
 pub const PROTECTED_PROCESSES: &[&str] = &[
     // Core Windows kernel & session
     "system",
@@ -125,6 +126,8 @@ pub struct FocusModeState {
     pub last_snapshot: SessionSnapshot,
 }
 
+#[allow(dead_code)]
+#[allow(dead_code)]
 pub fn is_protected_process(process_name: &str, protected_pids: &HashSet<u32>, pid: u32) -> bool {
     if protected_pids.contains(&pid) {
         return true;

@@ -22,6 +22,7 @@ pub fn optimal_threads(cpu: &CpuTopology) -> usize {
 /// RAII guard that switches Windows power plan to High Performance while a model runs,
 /// and restores the user's previous power plan when dropped.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct PowerPlanGuard {
     previous_guid: Option<String>,
 }
@@ -89,6 +90,7 @@ fn set_power_guid(guid: &str) -> bool {
         .is_ok_and(|s| s.success())
 }
 
+#[allow(dead_code)]
 pub fn extract_guid(text: &str) -> Option<String> {
     for token in text.split_whitespace() {
         let cleaned = token.trim_matches(|c: char| c == '(' || c == ')' || c == ':');
