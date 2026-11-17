@@ -45,7 +45,7 @@ impl HardwareProfile {
             .unwrap_or_else(|| "Unknown x64 CPU".to_string());
 
         let logical_threads = sys.cpus().len().max(1);
-        let (p_cores, e_cores) = detect_core_topology(logical_threads);
+        let (p_cores, e_cores) = detect_core_topology(&sys, logical_threads);
         let (avx2, neon) = detect_simd_caps();
 
         let ram_total_bytes = sys.total_memory();
@@ -115,14 +115,14 @@ fn detect_simd_caps() -> (bool, bool) {
     }
 }
 
-fn detect_core_topology(logical_threads: usize) -> (usize, usize) {
+fn detect_core_topology(sys: &System, logical_threads: usize) -> (usize, usize) {
     #[cfg(windows)]
     {
         if let Some((p, e)) = query_windows_hybrid_cores() {
             return (p.max(1), e);
         }
     }
-    let physical = System::physical_core_count().unwrap_or(logical_threads.max(1));
+    let physical = sys.physical_core_count().unwrap_or(logical_threads.max(1));
     (physical.max(1), 0)
 }
 

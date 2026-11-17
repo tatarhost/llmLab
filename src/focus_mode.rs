@@ -571,7 +571,7 @@ mod windows_impl {
             for &raw in hwnds {
                 let hwnd = HWND(raw as *mut c_void);
                 unsafe {
-                    let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+                    let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
                 }
             }
             return;
