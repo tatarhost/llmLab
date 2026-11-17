@@ -421,6 +421,10 @@ impl App {
         };
 
         self.stop_engine();
+
+        // Auto-detect best engine based on user hardware (OpenVINO for Intel, Vulkan for GPU, AVX2 for CPU)
+        self.cfg.engine = crate::tuner::auto_select_optimal_engine(&self.hw);
+
         self.power_guard = Some(PowerPlanGuard::activate_if_enabled(
             self.cfg.high_performance_power,
         ));

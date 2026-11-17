@@ -65,6 +65,15 @@ export const INITIAL_FOCUS_PROCESSES: ProcessSample[] = [
 
 export const HF_MODEL_SAMPLES: HfModelSample[] = [
   {
+    id: 'qwen-1.5b',
+    repo: 'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+    quant: 'Q4_K_M',
+    sizeGb: 1.1,
+    fit: { ru: '[Оптимально · Топ для ПК/Termux]', en: '[Optimal · Top for PC/Termux]' },
+    fitsPc: true,
+    speed: '30–55 tok/s',
+  },
+  {
     id: 'qwen-3b',
     repo: 'Qwen/Qwen2.5-3B-Instruct-GGUF',
     quant: 'Q4_K_M',

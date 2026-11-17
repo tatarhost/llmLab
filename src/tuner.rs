@@ -199,6 +199,19 @@ pub fn build_engine_launch_spec(
     }
 }
 
+pub fn auto_select_optimal_engine(hw: &crate::hardware::HardwareProfile) -> EngineKind {
+    let brand = hw.cpu.brand.to_ascii_lowercase();
+    let gpu_name = hw.gpu.name.to_ascii_lowercase();
+    let is_intel = brand.contains("intel") || gpu_name.contains("intel") || gpu_name.contains("arc") || gpu_name.contains("iris");
+    if is_intel && hw.gpu.openvino_available {
+        EngineKind::OpenVino
+    } else if hw.gpu.vulkan_available {
+        EngineKind::LlamaCppVulkan
+    } else {
+        EngineKind::LlamaCppAvx2
+    }
+}
+
 pub fn spawn_tuned_engine(
     spec: &EngineLaunchSpec,
     high_priority: bool,
