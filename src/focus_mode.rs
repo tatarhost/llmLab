@@ -150,7 +150,7 @@ impl FocusModeState {
         self.last_snapshot = load_session_snapshot(None);
 
         let mut list = enumerate_focus_targets(&keep_set);
-        list.sort_by(|a, b| b.ram_mb.cmp(&a.ram_mb));
+        list.sort_by_key(|a| std::cmp::Reverse(a.ram_mb));
 
         self.targets = list;
         if self.selected_idx >= self.targets.len() {

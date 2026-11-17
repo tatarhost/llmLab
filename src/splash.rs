@@ -89,7 +89,7 @@ fn render_logo_scan(frame: &mut Frame<'_>, area: Rect, elapsed_ms: f32, logo: &[
     let visible_rows = (scan_progress * logo.len() as f32).ceil() as usize;
 
     // White pulse over the central </> cutout between 620ms and 860ms
-    let pulse_active = elapsed_ms >= PHASE1_SCAN_MS && elapsed_ms <= PHASE1_PULSE_END_MS;
+    let pulse_active = (PHASE1_SCAN_MS..=PHASE1_PULSE_END_MS).contains(&elapsed_ms);
     let pulse_intensity = if pulse_active {
         let mid = (PHASE1_SCAN_MS + PHASE1_PULSE_END_MS) * 0.5;
         let half = (PHASE1_PULSE_END_MS - PHASE1_SCAN_MS) * 0.5;
