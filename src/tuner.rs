@@ -154,10 +154,13 @@ pub fn build_engine_launch_spec(
             };
             args.extend(["-ngl".to_string(), ngl.to_string()]);
 
-            EngineLaunchSpec {
-                binary: cfg.llama_server_path.clone(),
-                args,
-            }
+            let binary = if cfg.llama_server_path.trim().is_empty() {
+                cfg.llama_cli_path.clone()
+            } else {
+                cfg.llama_server_path.clone()
+            };
+
+            EngineLaunchSpec { binary, args }
         }
         EngineKind::OpenVino => EngineLaunchSpec {
             binary: cfg.openvino_cli_path.clone(),

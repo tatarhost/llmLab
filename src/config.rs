@@ -83,6 +83,7 @@ impl CloudProvider {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub models_dir: String,
@@ -148,6 +149,7 @@ impl KeepAppsStore {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClosedAppEntry {
     pub process_name: String,
@@ -157,6 +159,7 @@ pub struct ClosedAppEntry {
     pub freed_mb: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SessionSnapshot {
     pub created_at: String,

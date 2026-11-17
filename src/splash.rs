@@ -179,12 +179,18 @@ fn render_hardware_reveal(
         if hw.gpu.openvino_available { "Да" } else { "Нет" },
     );
 
+    let gpu_mem = if hw.gpu.vram_mb > 0 {
+        format!("{} МБ VRAM", hw.gpu.vram_mb)
+    } else {
+        format!("{} МБ Shared", hw.gpu.shared_mb)
+    };
+
     let rows = [
         ("CPU", hw.cpu.brand.clone(), Color::Rgb(0, 245, 212)),
         ("Ядра", cores_text, Color::Rgb(150, 220, 255)),
         (
             "GPU",
-            format!("{} ({} · {} МБ VRAM)", hw.gpu.name, hw.gpu.vendor, hw.gpu.vram_mb),
+            format!("{} ({} · {})", hw.gpu.name, hw.gpu.vendor, gpu_mem),
             Color::Rgb(58, 134, 255),
         ),
         ("Ускор.", accel_text, Color::Rgb(170, 200, 255)),

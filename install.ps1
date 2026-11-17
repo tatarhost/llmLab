@@ -8,8 +8,51 @@ $ErrorActionPreference = "Stop"
 
 $Repo = if ($env:LLMLAB_REPO) { $env:LLMLAB_REPO } else { "tatarhost/llmLab" }
 $InstallDir = Join-Path $env:LOCALAPPDATA "llmLab"
-$ZipUrl = "https://github.com/$Repo/releases/latest/download/llmLab-win64.zip"
-$HashUrl = "https://github.com/$Repo/releases/latest/download/SHA256SUMS.txt"
+
+function Resolve-ReleaseAssets {
+    param([string]$RepoSlug)
+
+    $candidates = @(
+        @{
+            Zip  = "https://github.com/$RepoSlug/releases/latest/download/llmLab-win64.zip"
+            Hash = "https://github.com/$RepoSlug/releases/latest/download/SHA256SUMS.txt"
+        },
+        @{
+            Zip  = "https://github.com/$RepoSlug/releases/download/latest/llmLab-win64.zip"
+            Hash = "https://github.com/$RepoSlug/releases/download/latest/SHA256SUMS.txt"
+        }
+    )
+
+    try {
+        $headers = @{ "User-Agent" = "llmLab-Installer" }
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$RepoSlug/releases?per_page=5" -Headers $headers -UseBasicParsing
+        foreach ($rel in $releases) {
+            $zipAsset = $rel.assets | Where-Object { $_.name -eq "llmLab-win64.zip" } | Select-Object -First 1
+            if ($zipAsset) {
+                $hashAsset = $rel.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" } | Select-Object -First 1
+                return @{
+                    Zip  = $zipAsset.browser_download_url
+                    Hash = if ($hashAsset) { $hashAsset.browser_download_url } else { $null }
+                }
+            }
+        }
+    } catch {
+        # Ignore API rate limit / offline errors and fall back to static release URLs
+    }
+
+    foreach ($c in $candidates) {
+        try {
+            $resp = Invoke-WebRequest -Uri $c.Zip -Method Head -UseBasicParsing
+            if ($resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
+                return $c
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $null
+}
 
 Write-Host "==> Установка llmLab из https://github.com/$Repo ..." -ForegroundColor Cyan
 
@@ -17,26 +60,69 @@ $TempDir = Join-Path $env:TEMP ("llmlab-install-" + [guid]::NewGuid().ToString("
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 
 try {
-    $ZipPath = Join-Path $TempDir "llmLab-win64.zip"
-    $HashPath = Join-Path $TempDir "SHA256SUMS.txt"
-
-    Write-Host "    Скачивание последнего релиза..."
-    Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath -UseBasicParsing
-
-    try {
-        Invoke-WebRequest -Uri $HashUrl -OutFile $HashPath -UseBasicParsing
-        $ExpectedHash = ((Get-Content $HashPath -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
-        $ActualHash = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($ExpectedHash -and ($ExpectedHash -ne $ActualHash)) {
-            throw "SHA256 не совпадает! Ожидалось: $ExpectedHash, получено: $ActualHash"
-        }
-        Write-Host "    SHA256 проверен: $ActualHash" -ForegroundColor Green
-    } catch {
-        Write-Host "    Предупреждение: не удалось проверить SHA256SUMS.txt ($($_.Exception.Message))" -ForegroundColor Yellow
-    }
-
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
+
+    $Assets = Resolve-ReleaseAssets -RepoSlug $Repo
+    if ($Assets) {
+        $ZipPath = Join-Path $TempDir "llmLab-win64.zip"
+        $HashPath = Join-Path $TempDir "SHA256SUMS.txt"
+
+        Write-Host "    Скачивание последнего релиза..."
+        Invoke-WebRequest -Uri $Assets.Zip -OutFile $ZipPath -UseBasicParsing
+
+        if ($Assets.Hash) {
+            try {
+                Invoke-WebRequest -Uri $Assets.Hash -OutFile $HashPath -UseBasicParsing
+                $ExpectedHash = ((Get-Content $HashPath -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
+                $ActualHash = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($ExpectedHash -and ($ExpectedHash -ne $ActualHash)) {
+                    throw "SHA256 не совпадает! Ожидалось: $ExpectedHash, получено: $ActualHash"
+                }
+                Write-Host "    SHA256 проверен: $ActualHash" -ForegroundColor Green
+            } catch {
+                Write-Host "    Предупреждение: не удалось проверить SHA256SUMS.txt ($($_.Exception.Message))" -ForegroundColor Yellow
+            }
+        }
+
+        Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
+    } else {
+        Write-Host "    На GitHub Releases пока нет готового архива llmLab-win64.zip." -ForegroundColor Yellow
+
+        $HasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
+        $HasCargo = [bool](Get-Command cargo -ErrorAction SilentlyContinue)
+
+        if ($HasGit -and $HasCargo) {
+            Write-Host "    Найдены git и cargo — выполняю локальную release-сборку из main..." -ForegroundColor Cyan
+            $RepoDir = Join-Path $TempDir "src"
+            & git clone --depth 1 "https://github.com/$Repo.git" $RepoDir
+            Push-Location $RepoDir
+            try {
+                if (Get-Command python -ErrorAction SilentlyContinue) {
+                    try {
+                        & python scripts/make_icon.py
+                    } catch {
+                        Write-Host "    Pillow не найден — сборка продолжится без обновления icon.ico" -ForegroundColor Yellow
+                    }
+                }
+                & cargo build --release --target x86_64-pc-windows-msvc
+                $BuiltExe = Join-Path $RepoDir "target\x86_64-pc-windows-msvc\release\llmLab.exe"
+                if (-not (Test-Path $BuiltExe)) {
+                    throw "Не удалось найти собранный $BuiltExe"
+                }
+                Copy-Item $BuiltExe (Join-Path $InstallDir "llmLab.exe") -Force
+                if (Test-Path "README.md") { Copy-Item "README.md" (Join-Path $InstallDir "README.md") -Force }
+                if (Test-Path "config.example.toml") { Copy-Item "config.example.toml" (Join-Path $InstallDir "config.example.toml") -Force }
+            } finally {
+                Pop-Location
+            }
+        } else {
+            Write-Host ""
+            Write-Host "Ошибка: релиз llmLab-win64.zip ещё не опубликован в https://github.com/$Repo/releases." -ForegroundColor Red
+            Write-Host "1) Откройте https://github.com/$Repo/actions и дождитесь зелёного завершения 'CI & Windows Release' (или запустите Workflow manually)." -ForegroundColor Yellow
+            Write-Host "2) Либо установите Rust (winget install Rustlang.Rustup) и Git, затем повторите команду — скрипт соберёт llmLab.exe сам." -ForegroundColor Yellow
+            return
+        }
+    }
 
     $ModelsDir = Join-Path $InstallDir "models"
     New-Item -ItemType Directory -Force -Path $ModelsDir | Out-Null
@@ -70,8 +156,10 @@ try {
         $Shortcut.Save()
     }
 
-    Write-Host "==> Готово! Запуск llmLab..." -ForegroundColor Cyan
-    & $ExePath
+    if (Test-Path $ExePath) {
+        Write-Host "==> Готово! Запуск llmLab..." -ForegroundColor Cyan
+        & $ExePath
+    }
 }
 finally {
     Remove-Item -Recurse -Force $TempDir -ErrorAction SilentlyContinue

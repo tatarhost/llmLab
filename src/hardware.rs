@@ -100,35 +100,6 @@ pub fn format_gb(bytes: u64) -> String {
     format!("{gb:.1} ГБ")
 }
 
-pub fn bytes_to_mb(bytes: u64) -> u64 {
-    bytes / (1024 * 1024)
-}
-
-/// Parses a human-readable memory value (e.g., "4096 MB", "8.5 GB", "1024 K") into bytes.
-pub fn parse_memory_bytes(input: &str) -> Option<u64> {
-    let trimmed = input.trim().to_ascii_uppercase();
-    let split_idx = trimmed
-        .find(|c: char| !(c.is_ascii_digit() || c == '.'))
-        .unwrap_or(trimmed.len());
-    let num_part = trimmed[..split_idx].trim();
-    let unit_part = trimmed[split_idx..].trim();
-
-    let value: f64 = num_part.parse().ok()?;
-    if value < 0.0 {
-        return None;
-    }
-
-    let multiplier: f64 = match unit_part {
-        "" | "B" => 1.0,
-        "K" | "KB" | "KIB" => 1024.0,
-        "M" | "MB" | "MIB" => 1024.0 * 1024.0,
-        "G" | "GB" | "GIB" => 1024.0 * 1024.0 * 1024.0,
-        _ => return None,
-    };
-
-    Some((value * multiplier).round() as u64)
-}
-
 fn detect_simd_caps() -> (bool, bool) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
@@ -325,6 +296,30 @@ fn query_dxgi_primary_adapter() -> Option<(String, &'static str, u64, u64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn parse_memory_bytes(input: &str) -> Option<u64> {
+        let trimmed = input.trim().to_ascii_uppercase();
+        let split_idx = trimmed
+            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .unwrap_or(trimmed.len());
+        let num_part = trimmed[..split_idx].trim();
+        let unit_part = trimmed[split_idx..].trim();
+
+        let value: f64 = num_part.parse().ok()?;
+        if value < 0.0 {
+            return None;
+        }
+
+        let multiplier: f64 = match unit_part {
+            "" | "B" => 1.0,
+            "K" | "KB" | "KIB" => 1024.0,
+            "M" | "MB" | "MIB" => 1024.0 * 1024.0,
+            "G" | "GB" | "GIB" => 1024.0 * 1024.0 * 1024.0,
+            _ => return None,
+        };
+
+        Some((value * multiplier).round() as u64)
+    }
 
     #[test]
     fn parses_memory_units_accurately() {

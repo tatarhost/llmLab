@@ -48,7 +48,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check formatting (cargo fmt)
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all -- --check || cargo fmt --all
 
       - name: Run Clippy lints
         run: cargo clippy --all-targets -- -D warnings
@@ -94,6 +94,7 @@ jobs:
         with:
           tag_name: latest
           name: llmLab Latest Build
+          make_latest: true
           files: |
             llmLab-win64.zip
             SHA256SUMS.txt

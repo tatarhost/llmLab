@@ -60,12 +60,12 @@ export const ENGINE_SPECS: EngineSpec[] = [
     target: 'CPU + RAM',
     flags: '-t <P-Cores> -c 4096 --flash-attn --cache-type-k q8_0 --cache-type-v q8_0',
     summary: {
-      ru: 'Оптимальный режим для ноутбуков без дискретной GPU. На гибридных Intel 12–14 Gen использует только быстрые P-ядра.',
-      en: 'Best mode for laptops without a discrete GPU. Restricts threads to fast P-cores on hybrid Intel 12th–14th Gen CPUs.',
+      ru: 'Для ноутбуков и ПК без дискретной видеокарты. На гибридных процессорах Intel использует только быстрые P-ядра.',
+      en: 'For laptops and desktops without a discrete GPU. Restricts threads to fast P-cores on hybrid Intel CPUs.',
     },
     speedNote: {
-      ru: 'Приоритет процесса HIGH_PRIORITY_CLASS + авто-переключение Windows в High Performance.',
-      en: 'Runs with HIGH_PRIORITY_CLASS and temporarily switches Windows to High Performance power plan.',
+      ru: 'Приоритет процесса HIGH_PRIORITY_CLASS и временное переключение питания в High Performance.',
+      en: 'Runs under HIGH_PRIORITY_CLASS and switches Windows to High Performance power plan while active.',
     },
   },
   {
@@ -74,12 +74,12 @@ export const ENGINE_SPECS: EngineSpec[] = [
     target: 'iGPU / AMD / NVIDIA',
     flags: '-ngl 99 -t <P-Cores> -c 4096 --flash-attn --cache-type-k q8_0',
     summary: {
-      ru: 'Автоматически проверяет наличие vulkan-1.dll и переносит слои модели на встроенную графику Iris Xe, Radeon или дискретную карту.',
-      en: 'Detects vulkan-1.dll automatically and offloads layers to Intel Iris Xe, AMD Radeon iGPU, or discrete GPUs.',
+      ru: 'Проверяет vulkan-1.dll и переносит вычисления на встроенную графику Iris Xe, Radeon или дискретную видеокарту.',
+      en: 'Detects vulkan-1.dll and offloads layers to Intel Iris Xe, AMD Radeon iGPU, or discrete GPUs.',
     },
     speedNote: {
-      ru: 'Даёт заметный прирост скорости генерации токенов и снижает нагрузку на процессор.',
-      en: 'Accelerates token generation throughput while freeing CPU headroom.',
+      ru: 'Увеличивает скорость генерации и снижает загрузку CPU.',
+      en: 'Increases token throughput while reducing CPU load.',
     },
   },
   {
@@ -88,12 +88,12 @@ export const ENGINE_SPECS: EngineSpec[] = [
     target: 'Intel Core / Arc / NPU',
     flags: '--device AUTO --max-context 4096',
     summary: {
-      ru: 'Использует нативный стек Intel OpenVINO при наличии библиотек в системе для ускорения на процессорах и графике Intel.',
-      en: 'Uses Intel OpenVINO runtime when installed to accelerate inference across Intel CPU and integrated graphics.',
+      ru: 'Использует установленный стек Intel OpenVINO для ускорения на процессорах и интегрированной графике Intel.',
+      en: 'Uses installed Intel OpenVINO libraries for Intel CPU and integrated graphics execution.',
     },
     speedNote: {
-      ru: 'Автоматический выбор лучшего Intel-устройства через --device AUTO.',
-      en: 'Automatic Intel execution device selection via --device AUTO.',
+      ru: 'Автоматический выбор устройства через --device AUTO.',
+      en: 'Automatic Intel device routing via --device AUTO.',
     },
   },
   {
@@ -102,12 +102,12 @@ export const ENGINE_SPECS: EngineSpec[] = [
     target: 'Groq / Cerebras / OpenRouter',
     flags: 'LLMLAB_API_KEY=<env>  ->  300+ tok/s SSE stream',
     summary: {
-      ru: 'Потоковый OpenAI-совместимый клиент без нагрузки на оперативную память и батарею ноутбука.',
-      en: 'Zero-footprint streaming OpenAI-compatible mode with zero local RAM or battery load.',
+      ru: 'Потоковый OpenAI-совместимый режим без нагрузки на оперативную память и батарею.',
+      en: 'Streaming OpenAI-compatible mode with zero local RAM or battery load.',
     },
     speedNote: {
-      ru: 'Мгновенный TTFT и живой Speed HUD прямо внутри консоли.',
-      en: 'Instant TTFT and live tok/s telemetry directly inside the terminal HUD.',
+      ru: 'Мгновенный TTFT и живой счётчик tok/s в консоли.',
+      en: 'Low TTFT and live tok/s telemetry directly in the console HUD.',
     },
   },
 ];
@@ -135,9 +135,9 @@ export function formatRamGb(mb: number): string {
 
 export interface SiteCopy {
   nav: {
-    overview: string;
     install: string;
     simulator: string;
+    overview: string;
     engines: string;
     cta: string;
   };
@@ -152,7 +152,6 @@ export interface SiteCopy {
     commandHint: Record<ShellMode, string>;
   };
   simulator: {
-    title: string;
     tabs: {
       splash: string;
       focus: string;
@@ -162,6 +161,10 @@ export interface SiteCopy {
     cleanBtn: string;
     restoreBtn: string;
     freedLabel: string;
+    freedTotalLabel: string;
+    statusClosed: string;
+    statusKeep: string;
+    statusClose: string;
     protectedNote: string;
     streamPromptBtn: string;
   };
@@ -169,10 +172,9 @@ export interface SiteCopy {
     heading: string;
     lead: string;
     items: Array<{
-      num: string;
       title: string;
       detail: string;
-      metric: string;
+      spec: string;
     }>;
   };
   engines: {
@@ -198,216 +200,214 @@ export interface SiteCopy {
 export const SITE_COPY: Record<Locale, SiteCopy> = {
   ru: {
     nav: {
-      overview: 'Обзор',
-      simulator: 'Демо TUI',
-      engines: 'Движки',
       install: 'Установка',
-      cta: 'Получить команду',
+      simulator: 'Демо TUI',
+      overview: 'Возможности',
+      engines: 'Движки',
+      cta: 'Команда',
     },
     hero: {
       meta: 'Windows 10 / 11 x64 · Нативный Rust TUI · < 25 МБ RAM',
-      title: 'Локальный ИИ на максимум скорости — даже без видеокарты',
+      title: 'Локальные ИИ-модели в консоли на максимальной скорости',
       subtitle:
-        'Сверхлёгкая консольная среда для запуска GGUF-моделей. Освобождает оперативную память с сохранением нужных окон, настраивает P-ядра и замеряет tok/s в реальном времени.',
-      copyBtn: 'Копировать команду',
+        'Сверхлёгкая среда запуска GGUF-моделей для Windows без дискретной видеокарты. Управляет окнами для освобождения RAM, настраивает P-ядра и считает tok/s.',
+      copyBtn: 'Копировать',
       copiedBtn: 'Скопировано',
       releaseBtn: 'Релизы GitHub',
       shellLabels: {
         powershell: 'PowerShell',
         cmd: 'CMD / Win+R',
-        source: 'Сборка из кода',
+        source: 'Из исходников',
       },
       commandHint: {
         powershell:
-          'Скачивает llmLab-win64.zip, проверяет SHA256, добавляет в PATH, создаёт ярлык на Рабочем столе и сразу запускает.',
-        cmd: 'Запускает установщик прямо из обычной командной строки или диалога Win + R.',
-        source: 'Локальная сборка с генерацией multi-res icon.ico через Pillow и вшиванием в .exe.',
+          'Скачивает llmLab-win64.zip, проверяет SHA256, прописывает PATH, создаёт ярлык на Рабочем столе и запускает llmLab.',
+        cmd: 'Запуск установщика из обычной командной строки или диалога Win + R.',
+        source: 'Сборка с генерацией multi-res icon.ico через Pillow и вшиванием в .exe.',
       },
     },
     simulator: {
-      title: 'Интерактивный предпросмотр консоли',
       tabs: {
-        splash: 'Анимация запуска',
-        focus: 'Режим «Только ИИ»',
-        hud: 'Чат + Speed HUD',
+        splash: 'Запуск',
+        focus: 'Только ИИ',
+        hud: 'Чат + HUD',
       },
-      replayBtn: 'Повторить 60 FPS скан',
+      replayBtn: 'Повторить скан',
       cleanBtn: 'Очистить RAM',
-      restoreBtn: 'Восстановить (Ctrl+R)',
-      freedLabel: 'Будет освобождено',
-      protectedNote: 'Системные службы Windows, VPN, аудио и терминал жёстко защищены.',
-      streamPromptBtn: 'Симулировать ответ',
+      restoreBtn: 'Вернуть (Ctrl+R)',
+      freedLabel: 'Освободится',
+      freedTotalLabel: 'Освобождено',
+      statusClosed: 'Закрыто',
+      statusKeep: 'Оставить',
+      statusClose: 'Закрыть',
+      protectedNote: 'Системные службы Windows, VPN, аудио и терминал защищены.',
+      streamPromptBtn: 'Запустить пример',
     },
     capabilities: {
-      heading: 'Спроектировано для слабого железа',
-      lead: 'Никакого Electron, Python-рантайма или фоновых сервисов. Единый нативный llmLab.exe запускается мгновенно.',
+      heading: 'Как устроен llmLab',
+      lead: 'Один нативный бинарник llmLab.exe без Electron, Python-рантайма и фоновых процессов.',
       items: [
         {
-          num: '01.',
           title: 'Режим «Только ИИ» с белым списком окон',
           detail:
-            'Сканирует открытые окна через Win32 EnumWindows и фоновые процессы тяжелее 80 МБ. Вы отмечаете галочкой [x], что оставить (Discord, Telegram, VS Code), а остальное мягко закрывается через WM_CLOSE со снапшотом для возврата по Ctrl+R.',
-          metric: 'keep_apps.json + session_snapshot.json',
+            'Собирает открытые окна через EnumWindows и фоновые процессы тяжелее 80 МБ. Отмеченные [x] окна (Discord, Telegram, VS Code) остаются, остальное мягко закрывается по WM_CLOSE со снапшотом для возврата по Ctrl+R.',
+          spec: 'keep_apps.json · session_snapshot.json',
         },
         {
-          num: '02.',
           title: 'Auto-Tuner под гибридные CPU и питание',
           detail:
-            'Определяет реальные P-ядра и E-ядра через GetLogicalProcessorInformationEx, ограничивает потоки быстрыми ядрами, временно переводит Windows в High Performance (powercfg) и запускает движок с HIGH_PRIORITY_CLASS.',
-          metric: 'P-Core Threads + High Priority',
+            'Читает топологию P-ядер и E-ядер через GetLogicalProcessorInformationEx, привязывает потоки к P-ядрам, включает High Performance (powercfg) и ставит HIGH_PRIORITY_CLASS.',
+          spec: 'P-Core Threads · High Priority',
         },
         {
-          num: '03.',
-          title: 'TrueColor скан-анимация без мерцания',
+          title: 'Консольная анимация без мерцания',
           detail:
-            'Двухбуферный рендер на 60 FPS: градиентное появление логотипа, белый импульс центрального выреза </>, проверка CPU/GPU/RAM и автоматический ASCII-фоллбэк в старом cmd.exe.',
-          metric: '1.4s Startup · Enter / --fast skip',
+            'Двухбуферный рендер 60 FPS с построчным появлением логотипа, вспышкой центральной зоны </>, выводом параметров CPU/GPU/RAM и ASCII-фоллбэком для старого cmd.exe.',
+          spec: '1.4s Startup · Enter / --fast',
         },
         {
-          num: '04.',
-          title: 'Крошечный вес и нулевой оверхед',
+          title: 'Потребление < 25 МБ RAM',
           detail:
-            'Собрано с LTO и strip. Весь терминальный интерфейс занимает меньше 25 МБ RAM, оставляя максимум памяти под GGUF-модель и KV-кэш q8_0.',
-          metric: '< 25 MB Runtime Footprint',
+            'Сборка с LTO и strip оставляет максимум оперативной памяти под саму GGUF-модель и KV-кэш q8_0.',
+          spec: 'x86_64-pc-windows-msvc · LTO',
         },
       ],
     },
     engines: {
-      heading: 'Профили движков и ускорение',
-      lead: 'Выберите подходящий бэкенд под вашу конфигурацию — от старого CPU с AVX2 до облачных LPU на 300+ tok/s.',
-      flagsLabel: 'Передаваемые параметры запуска',
+      heading: 'Движки и профили запуска',
+      lead: 'Выберите бэкенд под вашу конфигурацию — от старого CPU с AVX2 до облачных API.',
+      flagsLabel: 'Параметры запуска',
     },
     tutorial: {
-      heading: 'Быстрый старт за 3 шага',
+      heading: 'Быстрый старт',
       steps: [
         {
-          step: 'Шаг 1',
+          step: '01',
           title: 'Установите одной командой',
-          body: 'Выполните команду PowerShell из блока выше. Установщик сам настроит PATH, создаст config.toml и папку models.',
+          body: 'Выполните команду PowerShell выше. Скрипт настроит PATH, создаст config.toml и папку models.',
         },
         {
-          step: 'Шаг 2',
-          title: 'Очистите память перед запуском',
-          body: 'Нажмите [2] в главном меню (или запустите llmLab --focus), оставьте нужные окна клавишей Space и примените очистку Enter.',
+          step: '02',
+          title: 'Освободите RAM в Focus Mode',
+          body: 'Нажмите [2] в меню (или llmLab --focus), отметьте нужные окна клавишей Space и нажмите Enter.',
         },
         {
-          step: 'Шаг 3',
-          title: 'Подключите GGUF или Cloud API',
-          body: 'Положите .gguf модель в models/ (рядом с llama-server.exe) или задайте LLMLAB_API_KEY для облачного режима 300+ tok/s.',
+          step: '03',
+          title: 'Запустите модель или Cloud API',
+          body: 'Поместите .gguf модель в models/ (рядом с llama-server.exe) или задайте LLMLAB_API_KEY для 300+ tok/s.',
         },
       ],
     },
     footer: {
-      tagline: 'llmLab — нативная консольная среда для локального ИИ под Windows x64',
-      github: 'Репозиторий GitHub',
-      releases: 'Скачать релиз',
+      tagline: 'llmLab — нативная консольная среда для локального ИИ (Windows x64)',
+      github: 'GitHub',
+      releases: 'Релизы',
     },
   },
   en: {
     nav: {
-      overview: 'Overview',
-      simulator: 'TUI Demo',
-      engines: 'Engines',
       install: 'Install',
+      simulator: 'Preview',
+      overview: 'Capabilities',
+      engines: 'Engines',
       cta: 'Get Command',
     },
     hero: {
       meta: 'Windows 10 / 11 x64 · Native Rust TUI · < 25 MB RAM',
-      title: 'Maximum local AI speed — even without a dedicated GPU',
+      title: 'Local AI models in your terminal at full hardware speed',
       subtitle:
-        'An ultra-lightweight terminal runtime for GGUF models. Frees RAM while keeping your chosen windows, pins threads to fast P-cores, and streams live tok/s telemetry.',
-      copyBtn: 'Copy Command',
+        'An ultra-lightweight GGUF runtime for Windows without a discrete GPU. Reclaims RAM while keeping chosen windows, pins threads to P-cores, and tracks tok/s live.',
+      copyBtn: 'Copy',
       copiedBtn: 'Copied',
       releaseBtn: 'GitHub Releases',
       shellLabels: {
         powershell: 'PowerShell',
         cmd: 'CMD / Win+R',
-        source: 'Build from Source',
+        source: 'From Source',
       },
       commandHint: {
         powershell:
-          'Downloads llmLab-win64.zip, verifies SHA256, adds to PATH, creates a Desktop shortcut, and launches immediately.',
-        cmd: 'Runs the installer directly from legacy Command Prompt or the Win + R dialog.',
-        source: 'Builds locally from source and embeds a multi-res icon.ico via Pillow and winres.',
+          'Downloads llmLab-win64.zip, verifies SHA256, updates PATH, creates a Desktop shortcut, and launches llmLab.',
+        cmd: 'Runs the installer directly from Command Prompt or Win + R.',
+        source: 'Builds locally and embeds a multi-res icon.ico via Pillow and winres.',
       },
     },
     simulator: {
-      title: 'Interactive Console Preview',
       tabs: {
-        splash: 'Startup Animation',
-        focus: 'AI Focus Mode',
-        hud: 'Chat + Speed HUD',
+        splash: 'Startup',
+        focus: 'Focus Mode',
+        hud: 'Chat + HUD',
       },
-      replayBtn: 'Replay 60 FPS Scan',
+      replayBtn: 'Replay Scan',
       cleanBtn: 'Clean RAM',
       restoreBtn: 'Restore (Ctrl+R)',
-      freedLabel: 'Reclaimable RAM',
-      protectedNote: 'Core Windows services, VPNs, audio drivers, and your terminal stay protected.',
-      streamPromptBtn: 'Simulate Stream',
+      freedLabel: 'Reclaimable',
+      freedTotalLabel: 'Freed',
+      statusClosed: 'Freed',
+      statusKeep: 'Keep',
+      statusClose: 'Close',
+      protectedNote: 'Core Windows services, VPNs, audio, and terminal stay protected.',
+      streamPromptBtn: 'Run Sample',
     },
     capabilities: {
-      heading: 'Engineered for constrained hardware',
-      lead: 'Zero Electron, zero Python runtime overhead. A single native llmLab.exe starts instantaneously.',
+      heading: 'How llmLab works',
+      lead: 'A single native llmLab.exe binary with zero Electron, Python runtime, or background daemons.',
       items: [
         {
-          num: '01.',
           title: 'AI Focus Mode with Window Whitelist',
           detail:
-            'Enumerates visible windows via Win32 EnumWindows and background processes over 80 MB. Mark apps to keep (Discord, Telegram, VS Code), gracefully close the rest via WM_CLOSE, and restore them in one click with Ctrl+R.',
-          metric: 'keep_apps.json + session_snapshot.json',
+            'Enumerates visible windows via EnumWindows and processes over 80 MB. Kept apps (Discord, Telegram, VS Code) stay open; everything else closes cleanly via WM_CLOSE with a Ctrl+R restore snapshot.',
+          spec: 'keep_apps.json · session_snapshot.json',
         },
         {
-          num: '02.',
           title: 'Hybrid CPU & Power Auto-Tuner',
           detail:
-            'Reads exact P-cores vs E-cores via GetLogicalProcessorInformationEx, pins threads to P-cores, activates High Performance power plan via powercfg while active, and spawns with HIGH_PRIORITY_CLASS.',
-          metric: 'P-Core Threads + High Priority',
+            'Reads exact P-cores and E-cores via GetLogicalProcessorInformationEx, pins threads to P-cores, enables High Performance via powercfg, and sets HIGH_PRIORITY_CLASS.',
+          spec: 'P-Core Threads · High Priority',
         },
         {
-          num: '03.',
-          title: 'Flicker-Free 60 FPS Startup Scan',
+          title: 'Flicker-Free Startup Probe',
           detail:
-            'Double-buffered TrueColor scanline reveal with a white </> visor pulse, live CPU/GPU/RAM probe, and automatic ASCII fallback on legacy cmd.exe consoles.',
-          metric: '1.4s Startup · Enter / --fast skip',
+            'Double-buffered 60 FPS scanline reveal, </> visor flash, live CPU/GPU/RAM readout, and automatic ASCII fallback on legacy cmd.exe consoles.',
+          spec: '1.4s Startup · Enter / --fast',
         },
         {
-          num: '04.',
-          title: 'Minimal Footprint, Maximum Model Budget',
+          title: 'Under 25 MB RAM Footprint',
           detail:
-            'Compiled with LTO and symbol stripping. Consumes under 25 MB RAM so every available gigabyte goes to your quantized model and q8_0 KV cache.',
-          metric: '< 25 MB Runtime Footprint',
+            'Compiled with LTO and symbol stripping so maximum memory remains available for your GGUF weights and q8_0 KV cache.',
+          spec: 'x86_64-pc-windows-msvc · LTO',
         },
       ],
     },
     engines: {
-      heading: 'Inference Engines & Acceleration',
-      lead: 'Pick the backend suited for your machine — from AVX2 laptops to 300+ tok/s cloud endpoints.',
-      flagsLabel: 'Auto-tuned launch flags',
+      heading: 'Engines & Profiles',
+      lead: 'Select a backend suited to your hardware — from AVX2 CPUs to cloud endpoints.',
+      flagsLabel: 'Launch flags',
     },
     tutorial: {
-      heading: 'Up and running in 3 steps',
+      heading: 'Quick Start',
       steps: [
         {
-          step: 'Step 1',
-          title: 'Install with one command',
-          body: 'Run the PowerShell snippet above. It sets up PATH, writes config.toml, and creates the models directory.',
+          step: '01',
+          title: 'Install in one command',
+          body: 'Run the PowerShell snippet above to configure PATH, create config.toml, and prepare models/.',
         },
         {
-          step: 'Step 2',
-          title: 'Reclaim RAM before loading',
-          body: 'Press [2] on the dashboard (or run llmLab --focus), toggle apps to keep with Space, and press Enter to clean RAM.',
+          step: '02',
+          title: 'Free RAM in Focus Mode',
+          body: 'Press [2] on the dashboard (or run llmLab --focus), mark apps to keep with Space, and press Enter.',
         },
         {
-          step: 'Step 3',
-          title: 'Load a GGUF model or Cloud API',
-          body: 'Drop any .gguf model into models/ alongside llama-server.exe, or set LLMLAB_API_KEY for 300+ tok/s cloud streaming.',
+          step: '03',
+          title: 'Run a GGUF model or Cloud API',
+          body: 'Drop a .gguf file into models/ alongside llama-server.exe, or set LLMLAB_API_KEY for 300+ tok/s.',
         },
       ],
     },
     footer: {
       tagline: 'llmLab — native local AI terminal runtime for Windows x64',
-      github: 'GitHub Repository',
-      releases: 'Download Release',
+      github: 'GitHub',
+      releases: 'Releases',
     },
   },
 };

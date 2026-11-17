@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Play, RotateCcw, ShieldCheck, Sparkles } from 'lucide-react';
+import { Play, RotateCcw, ShieldCheck } from 'lucide-react';
 import {
   calculateFreedRamMb,
   formatRamGb,
@@ -18,8 +18,8 @@ interface TuiSimulatorProps {
 }
 
 const SAMPLE_RESPONSE: Record<Locale, string> = {
-  ru: 'План питания переключён на High Performance. Потоки привязаны к 6 быстрым P-ядрам, KV-кэш квантован в q8_0. Скорость генерации на CPU стабильно держится на уровне 28.4 tok/s без троттлинга.',
-  en: 'Power plan switched to High Performance. Threads pinned to 6 fast P-cores with q8_0 KV cache quantization. CPU generation holds steady at 28.4 tok/s without thermal throttling.',
+  ru: 'План питания переключён на High Performance. Потоки привязаны к 6 P-ядрам, KV-кэш квантован в q8_0. Скорость генерации: 28.4 tok/s.',
+  en: 'Power plan switched to High Performance. Threads pinned to 6 P-cores with q8_0 KV cache. Generation rate: 28.4 tok/s.',
 };
 
 export function TuiSimulator({ locale }: TuiSimulatorProps) {
@@ -36,7 +36,6 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
 
   const copy = SITE_COPY[locale].simulator;
 
-  // Replay 60 FPS splash scanline effect
   const replayScan = () => {
     setScanRow(0);
     setPulseActive(false);
@@ -55,7 +54,6 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
     return () => window.clearTimeout(timer);
   }, [activeTab, scanRow]);
 
-  // Reset streamed text cleanly when locale changes
   useEffect(() => {
     if (!isStreaming) {
       setStreamChars(SAMPLE_RESPONSE[locale].length);
@@ -120,21 +118,21 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
   return (
     <motion.div
       id="simulator"
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.38, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col rounded-xl border border-white/10 bg-[#0B0F16] overflow-hidden shadow-2xl shadow-black/50"
+      transition={{ duration: 0.34, delay: 0.06, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col rounded-lg border border-white/15 bg-[#0A0A0A] overflow-hidden"
     >
       {/* Window Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-[#0F1520] px-4 py-3">
-        <span className="font-mono text-xs font-medium text-slate-300 whitespace-nowrap shrink-0">
-          llmLab TUI
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 bg-black px-4 py-3">
+        <span className="font-mono text-xs font-medium text-neutral-300 whitespace-nowrap shrink-0">
+          llmLab.exe
         </span>
 
         <div
           role="tablist"
           aria-label="TUI preview screens"
-          className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-[#07090D] p-1 border border-white/5"
+          className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md bg-[#0A0A0A] p-1 border border-white/10"
         >
           {tabs.map((tab) => {
             const active = activeTab === tab.id;
@@ -146,17 +144,17 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                 aria-selected={active}
                 onClick={() => setActiveTab(tab.id)}
                 whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.96 }}
                 transition={{ duration: 0.14 }}
-                className={`relative px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00F5D4] ${
-                  active ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                className={`relative px-2.5 py-1 text-xs font-medium rounded-sm whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+                  active ? 'text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="tui-tab-pill"
                     transition={{ type: 'spring', stiffness: 460, damping: 34 }}
-                    className="absolute inset-0 rounded-md bg-[#1B2638] border border-white/10"
+                    className="absolute inset-0 rounded-sm bg-white"
                   />
                 )}
                 <span className="relative z-10">{tab.label}</span>
@@ -167,7 +165,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
       </div>
 
       {/* Console Viewport */}
-      <div className="p-4 sm:p-5 min-h-[340px] flex flex-col justify-between bg-[#07090D]">
+      <div className="p-4 sm:p-5 min-h-[340px] flex flex-col justify-between bg-black">
         <AnimatePresence mode="wait">
           {activeTab === 'splash' && (
             <motion.div
@@ -179,7 +177,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
               className="flex flex-col gap-4"
             >
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                <div className="md:col-span-6 flex flex-col items-center justify-center rounded-lg border border-white/5 bg-[#0A0E14] py-4 px-2 overflow-hidden">
+                <div className="md:col-span-6 flex flex-col items-center justify-center rounded-md border border-white/10 bg-[#050505] py-4 px-2 overflow-hidden">
                   <pre
                     aria-label="llmLab console logo"
                     className="font-mono text-[8px] sm:text-[8.5px] leading-[1.12] select-none"
@@ -188,9 +186,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                       const visible = idx < scanRow;
                       const isHead = scanRow < LOGO_LINES.length && idx + 1 === scanRow;
                       const ratio = idx / (LOGO_LINES.length - 1);
-                      const r = Math.round(0 + 58 * ratio);
-                      const g = Math.round(245 + (134 - 245) * ratio);
-                      const b = Math.round(212 + (255 - 212) * ratio);
+                      const shade = Math.round(255 - ratio * 95);
                       const inVisor = idx >= 5 && idx <= 12;
 
                       return (
@@ -203,7 +199,7 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                               ? '#FFFFFF'
                               : pulseActive && inVisor
                                 ? '#FFFFFF'
-                                : `rgb(${r}, ${g}, ${b})`,
+                                : `rgb(${shade}, ${shade}, ${shade})`,
                           }}
                         >
                           {line}
@@ -211,50 +207,51 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                       );
                     })}
                   </pre>
-                  <p className="mt-2.5 font-mono text-[8px] sm:text-[9px] tracking-[0.04em] text-[#A5DCFF] whitespace-nowrap text-center">
+                  <p className="mt-2.5 font-mono text-[8px] sm:text-[9px] tracking-[0.04em] text-neutral-300 whitespace-nowrap text-center">
                     l l m L a b · L O C A L A I R U N T I M E
                   </p>
                 </div>
 
-                <div className="md:col-span-6 rounded-lg border border-white/10 bg-[#0D1219] p-3.5 font-mono text-[11px] space-y-2">
+                <div className="md:col-span-6 rounded-md border border-white/15 bg-[#0A0A0A] p-3.5 font-mono text-[11px] space-y-2">
                   <p className="text-white font-semibold pb-1.5 border-b border-white/10">
                     Hardware Probe
                   </p>
                   <div className="flex justify-between gap-2 whitespace-nowrap">
-                    <span className="text-slate-400">CPU</span>
-                    <span className="text-[#00F5D4]">i5-12400H · AVX2</span>
+                    <span className="text-neutral-500">CPU</span>
+                    <span className="text-white">i5-12400H · AVX2</span>
                   </div>
                   <div className="flex justify-between gap-2 whitespace-nowrap">
-                    <span className="text-slate-400">Cores</span>
-                    <span className="text-slate-200">4P / 8E (16T)</span>
+                    <span className="text-neutral-500">Cores</span>
+                    <span className="text-neutral-200">4P / 8E (16T)</span>
                   </div>
                   <div className="flex justify-between gap-2 whitespace-nowrap">
-                    <span className="text-slate-400">GPU</span>
-                    <span className="text-[#3A86FF]">Iris Xe · Vulkan</span>
+                    <span className="text-neutral-500">GPU</span>
+                    <span className="text-neutral-200">Iris Xe · Vulkan</span>
                   </div>
                   <div className="flex justify-between gap-2 whitespace-nowrap">
-                    <span className="text-slate-400">RAM</span>
-                    <span className="text-emerald-300">5.4 / 16.0 GB</span>
+                    <span className="text-neutral-500">RAM</span>
+                    <span className="text-neutral-200">5.4 / 16.0 GB</span>
                   </div>
                   <div className="flex justify-between gap-2 pt-1.5 border-t border-white/10 whitespace-nowrap">
-                    <span className="text-slate-400">Budget</span>
-                    <span className="text-white">~9.3 GB GGUF</span>
+                    <span className="text-neutral-500">Budget</span>
+                    <span className="text-white font-semibold">~9.3 GB GGUF</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <span className="font-mono text-xs text-slate-400">
-                  1.4s · Enter / Space / --fast
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <span className="font-mono text-xs text-neutral-500">
+                  1.4s · Enter · <span className="whitespace-nowrap">--fast</span>
                 </span>
                 <motion.button
                   type="button"
                   onClick={replayScan}
                   whileHover={{ scale: 1.03, y: -1 }}
-                  whileTap={{ scale: 0.96 }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#121925] px-3.5 py-1.5 text-xs font-medium text-white hover:border-[#00F5D4]/60 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00F5D4]"
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 440, damping: 24 }}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black px-3.5 py-1.5 text-xs font-medium text-white hover:bg-white hover:text-black transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                  <Play className="h-3.5 w-3.5 text-[#00F5D4]" aria-hidden="true" />
+                  <Play className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{copy.replayBtn}</span>
                 </motion.button>
               </div>
@@ -270,19 +267,19 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
               transition={{ duration: 0.18 }}
               className="flex flex-col gap-3"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0D1219] px-3.5 py-2.5 font-mono text-xs">
-                <span className="text-slate-300">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/15 bg-[#0A0A0A] px-3.5 py-2.5 font-mono text-xs">
+                <span className="text-neutral-400">
                   {copy.freedLabel}:{' '}
-                  <strong className="text-[#00F5D4] tabular-nums">
+                  <strong className="text-white tabular-nums">
                     +{formatRamGb(pendingReclaimMb)}
                   </strong>
                 </span>
-                <span className="text-emerald-300 tabular-nums">
-                  Freed: +{formatRamGb(freedTotalMb)}
+                <span className="text-white tabular-nums">
+                  {copy.freedTotalLabel}: +{formatRamGb(freedTotalMb)}
                 </span>
               </div>
 
-              <div className="divide-y divide-white/5 rounded-lg border border-white/10 bg-[#0A0E14] font-mono text-xs">
+              <div className="divide-y divide-white/10 rounded-md border border-white/15 bg-[#050505] font-mono text-xs">
                 {processes.map((proc) => {
                   const isClosed = cleanedIds.has(proc.id);
                   return (
@@ -291,34 +288,32 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                       type="button"
                       disabled={isClosed}
                       onClick={() => toggleKeep(proc.id)}
-                      whileHover={isClosed ? undefined : { backgroundColor: 'rgba(255,255,255,0.03)' }}
-                      whileTap={isClosed ? undefined : { scale: 0.995 }}
+                      whileHover={isClosed ? undefined : { backgroundColor: 'rgba(255,255,255,0.05)' }}
+                      whileTap={isClosed ? undefined : { scale: 0.99 }}
                       className={`w-full flex items-center justify-between gap-3 px-3.5 py-2 text-left transition-opacity ${
-                        isClosed ? 'opacity-45 cursor-default' : 'cursor-pointer'
+                        isClosed ? 'opacity-40 cursor-default' : 'cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`shrink-0 ${
-                            proc.keep ? 'text-[#00F5D4]' : 'text-amber-300'
-                          }`}
-                        >
+                        <span className="shrink-0 text-white">
                           {proc.keep ? '[x]' : '[ ]'}
                         </span>
-                        <span className="truncate text-slate-200">{proc.title}</span>
+                        <span
+                          className={`truncate ${
+                            isClosed ? 'line-through text-neutral-500' : 'text-neutral-200'
+                          }`}
+                        >
+                          {proc.title}
+                        </span>
                       </div>
                       <div className="flex items-center gap-3 shrink-0 tabular-nums">
-                        <span className="text-slate-400">{proc.ramMb} MB</span>
-                        <span
-                          className={
-                            isClosed
-                              ? 'text-emerald-400'
-                              : proc.keep
-                                ? 'text-[#00F5D4]'
-                                : 'text-amber-300'
-                          }
-                        >
-                          {isClosed ? 'Freed' : proc.keep ? 'Keep' : 'Close'}
+                        <span className="text-neutral-500">{proc.ramMb} MB</span>
+                        <span className={proc.keep ? 'text-white' : 'text-neutral-400'}>
+                          {isClosed
+                            ? copy.statusClosed
+                            : proc.keep
+                              ? copy.statusKeep
+                              : copy.statusClose}
                         </span>
                       </div>
                     </motion.button>
@@ -327,8 +322,8 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#00F5D4] shrink-0" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1.5 text-xs text-neutral-400">
+                  <ShieldCheck className="h-3.5 w-3.5 text-white shrink-0" aria-hidden="true" />
                   <span>{copy.protectedNote}</span>
                 </span>
 
@@ -337,8 +332,8 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                     type="button"
                     onClick={handleRestore}
                     whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#121925] px-3 py-1.5 text-xs font-medium text-slate-200 hover:text-white whitespace-nowrap shrink-0"
+                    whileTap={{ scale: 0.95 }}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-900 whitespace-nowrap shrink-0"
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{copy.restoreBtn}</span>
@@ -347,8 +342,8 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
                     type="button"
                     onClick={handleApplyCleanup}
                     whileHover={{ scale: 1.03, y: -1 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#00F5D4] px-3.5 py-1.5 text-xs font-semibold text-[#07090D] hover:bg-[#19FFE0] whitespace-nowrap shrink-0"
+                    whileTap={{ scale: 0.95 }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 whitespace-nowrap shrink-0"
                   >
                     <span>{copy.cleanBtn}</span>
                   </motion.button>
@@ -366,45 +361,45 @@ export function TuiSimulator({ locale }: TuiSimulatorProps) {
               transition={{ duration: 0.18 }}
               className="flex flex-col justify-between gap-4 h-full"
             >
-              <div className="rounded-lg border border-white/10 bg-[#0D1219] px-3.5 py-2.5 font-mono text-xs flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[#00F5D4] font-semibold tabular-nums">
+              <div className="rounded-md border border-white/15 bg-[#0A0A0A] px-3.5 py-2.5 font-mono text-xs flex flex-wrap items-center justify-between gap-2">
+                <span className="text-white font-semibold tabular-nums">
                   {liveTokSec} tok/s
                 </span>
-                <span className="text-slate-300 tabular-nums">TTFT: 142 ms</span>
-                <span className="text-slate-300 tabular-nums">RAM: 4.1 / 16.0 GB</span>
-                <span className="text-[#3A86FF] tabular-nums">CPU: 74%</span>
+                <span className="text-neutral-300 tabular-nums">TTFT: 142 ms</span>
+                <span className="text-neutral-300 tabular-nums">RAM: 4.1 / 16.0 GB</span>
+                <span className="text-neutral-300 tabular-nums">CPU: 74%</span>
               </div>
 
-              <div className="rounded-lg border border-white/10 bg-[#0A0E14] p-4 font-mono text-xs leading-relaxed space-y-3 min-h-[175px]">
-                <p className="text-[#3A86FF]">
+              <div className="rounded-md border border-white/15 bg-[#050505] p-4 font-mono text-xs leading-relaxed space-y-3 min-h-[175px]">
+                <p className="text-neutral-400">
                   You &gt;{' '}
-                  <span className="text-slate-200">
+                  <span className="text-white">
                     {locale === 'ru'
-                      ? 'Как оптимизирован запуск Qwen 2.5 3B?'
-                      : 'How is Qwen 2.5 3B tuned on this laptop?'}
+                      ? 'Как настроен запуск Qwen 2.5 3B?'
+                      : 'How is Qwen 2.5 3B tuned here?'}
                   </span>
                 </p>
-                <p className="text-[#00F5D4]">
+                <p className="text-white">
                   AI &gt;{' '}
-                  <span className="text-slate-200">{responseText}</span>
+                  <span className="text-neutral-200">{responseText}</span>
                   {isStreaming && (
-                    <span className="inline-block w-1.5 h-3.5 ml-1 align-middle bg-[#00F5D4] animate-pulse" />
+                    <span className="inline-block w-1.5 h-3.5 ml-1 align-middle bg-white animate-pulse" />
                   )}
                 </p>
               </div>
 
               <div className="flex items-center justify-between gap-3">
-                <span className="font-mono text-xs text-slate-400">
+                <span className="font-mono text-xs text-neutral-500">
                   llama-server · qwen2.5-3b-q4_k_m.gguf
                 </span>
                 <motion.button
                   type="button"
                   onClick={startStreamDemo}
                   whileHover={{ scale: 1.03, y: -1 }}
-                  whileTap={{ scale: 0.96 }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#3A86FF] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#2E75EB] whitespace-nowrap shrink-0"
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 whitespace-nowrap shrink-0"
                 >
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  <Play className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{copy.streamPromptBtn}</span>
                 </motion.button>
               </div>
